@@ -495,9 +495,65 @@ const getGradeDetails = (score: number, totalQuestions: number): { grade: string
     return { grade: 'امتياز', color: 'text-purple-500' };
 };
 
+const IncorrectAnswersReview: React.FC<{ attempt: ExamAttempt }> = ({ attempt }) => {
+    const { state } = useContext(AppContext);
+
+    const incorrectAnswers = useMemo(() => {
+        return Object.keys(attempt.answers)
+            .map(qId => {
+                const question = state.questions.find(q => q.id === qId);
+                if (!question) return null;
+                const userAnswer = attempt.answers[qId];
+                if (userAnswer !== question.correctAnswer) {
+                    return { question, userAnswer };
+                }
+                return null;
+            })
+            .filter(item => item !== null) as { question: Question, userAnswer: string }[];
+    }, [attempt, state.questions]);
+
+    if (incorrectAnswers.length === 0) {
+        return (
+            <div className="p-6 mt-8 bg-white rounded-lg shadow-md">
+                <h3 className="text-xl font-bold text-center text-green-600">رائع! لا توجد إجابات خاطئة.</h3>
+            </div>
+        );
+    }
+
+    return (
+        <div className="p-6 mt-8 bg-white rounded-lg shadow-md">
+            <h3 className="mb-4 text-2xl font-bold text-center text-brand-navy">مراجعة الإجابات الخاطئة</h3>
+            <div className="space-y-6">
+                {incorrectAnswers.map(({ question, userAnswer }, index) => {
+                    let userAnswerText: string | undefined = userAnswer;
+                    let correctAnswerText: string | undefined = question.correctAnswer;
+                    if (question.type === QuestionType.MCQ && question.options) {
+                        userAnswerText = question.options[parseInt(userAnswer)] || "لم تجب";
+                        correctAnswerText = question.options[parseInt(question.correctAnswer)];
+                    } else if (question.type === QuestionType.TRUE_FALSE) {
+                        userAnswerText = userAnswer === 'true' ? 'صح' : 'خطأ';
+                        correctAnswerText = question.correctAnswer === 'true' ? 'صح' : 'خطأ';
+                    }
+                    
+                    return (
+                        <div key={question.id} className="p-4 border-b">
+                            <p className="font-bold text-gray-800">({index + 1}) {question.text}</p>
+                            <p className="mt-2 text-red-600"><span className="font-semibold">إجابتك:</span> {userAnswerText}</p>
+                            <p className="mt-1 text-green-600"><span className="font-semibold">الإجابة الصحيحة:</span> {correctAnswerText}</p>
+                            {question.explanation && <p className="mt-2 text-sm text-gray-500 bg-gray-100 p-2 rounded"><span className="font-semibold">توضيح:</span> {question.explanation}</p>}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
+
 const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({ attempt, onBack }) => {
     const { state, currentUser } = useContext(AppContext);
     const [isDownloading, setIsDownloading] = useState(false);
+    const [showIncorrect, setShowIncorrect] = useState(false);
     
     const subject = state.subjects.find(s => s.id === attempt.subjectId)!;
     
@@ -519,7 +575,7 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
     };
     
     return (
-        <div className="max-w-4xl p-2 mx-auto bg-gray-200 sm:p-8 rounded-lg">
+        <div className="max-w-4xl p-2 mx-auto sm:p-8">
             {/* This is the printable/downloadable area */}
             <div id="pdf-content" className="p-8 bg-white shadow-lg border-8 border-double border-brand-gold">
                 {/* Header */}
@@ -595,10 +651,17 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
                 <button onClick={onBack} className="w-full px-6 py-2 bg-gray-300 rounded-md md:w-auto hover:bg-gray-400">
                     العودة إلى لوحة التحكم
                 </button>
-                <button onClick={handleDownloadPDF} disabled={isDownloading} className="w-full px-6 py-2 text-white bg-blue-600 rounded-md md:w-auto hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-wait">
-                    {isDownloading ? 'جاري التحميل...' : 'طباعة الشهادة (PDF)'}
-                </button>
+                <div className="flex flex-col w-full gap-4 md:w-auto md:flex-row">
+                    <button onClick={() => setShowIncorrect(!showIncorrect)} className="w-full px-6 py-2 text-white bg-orange-500 rounded-md md:w-auto hover:bg-orange-600">
+                        {showIncorrect ? 'إخفاء مراجعة الأخطاء' : 'عرض الإجابات الخاطئة'}
+                    </button>
+                    <button onClick={handleDownloadPDF} disabled={isDownloading} className="w-full px-6 py-2 text-white bg-blue-600 rounded-md md:w-auto hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-wait">
+                        {isDownloading ? 'جاري التحميل...' : 'طباعة الشهادة (PDF)'}
+                    </button>
+                </div>
             </div>
+            
+            {showIncorrect && <IncorrectAnswersReview attempt={attempt} />}
         </div>
     );
 };

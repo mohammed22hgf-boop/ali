@@ -10,6 +10,10 @@ declare const jspdf: any;
  */
 const generatePDFFromElement = async (elementId: string, filename: string): Promise<void> => {
   const { jsPDF } = jspdf;
+
+  // Wait for fonts to be fully loaded to ensure they are rendered correctly in the canvas.
+  await document.fonts.ready;
+  
   const element = document.getElementById(elementId);
   if (!element) {
     console.error(`Element with id #${elementId} not found.`);
@@ -21,6 +25,7 @@ const generatePDFFromElement = async (elementId: string, filename: string): Prom
       scale: 2, // Use a higher scale for better quality
       useCORS: true,
       backgroundColor: '#ffffff',
+      logging: false,
     });
     
     const imgData = canvas.toDataURL('image/png');
@@ -37,17 +42,18 @@ const generatePDFFromElement = async (elementId: string, filename: string): Prom
     const canvasHeight = canvas.height;
     const canvasAspectRatio = canvasWidth / canvasHeight;
 
-    // Calculate the width and height of the image in the PDF to fit the A4 page
-    let imgWidth = pdfWidth;
+    // Calculate the width and height of the image in the PDF to fit the A4 page with some margin
+    let imgWidth = pdfWidth - 20; // 10mm margin on each side
     let imgHeight = imgWidth / canvasAspectRatio;
 
-    if (imgHeight > pdfHeight) {
-      imgHeight = pdfHeight;
+    // If height is still too large, scale based on height
+    if (imgHeight > pdfHeight - 20) { // 10mm margin on top/bottom
+      imgHeight = pdfHeight - 20;
       imgWidth = imgHeight * canvasAspectRatio;
     }
 
     const xOffset = (pdfWidth - imgWidth) / 2;
-    const yOffset = 0;
+    const yOffset = 10; // 10mm top margin
 
     pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgWidth, imgHeight);
     pdf.save(filename);
