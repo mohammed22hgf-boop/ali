@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
+import React, { useState, useEffect, createContext, useContext, useCallback, useMemo } from 'react';
 import { User, UserRole, Subject, Question, ExamAttempt, AppState, QuestionType } from './types';
 import { initializeDB, getDB, saveDB } from './services/database';
 import generatePDFFromElement from './utils/pdfGenerator';
@@ -500,14 +500,9 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
     const [isDownloading, setIsDownloading] = useState(false);
     
     const subject = state.subjects.find(s => s.id === attempt.subjectId)!;
-    const questionsAnswered = state.questions.filter(q => Object.keys(attempt.answers).includes(q.id));
     
     const finalScore = attempt.totalQuestions > 0 ? ((attempt.score / attempt.totalQuestions) * 20).toFixed(2) : "0.00";
     const gradeDetails = getGradeDetails(attempt.score, attempt.totalQuestions);
-    
-    const incorrectQuestions = state.questions
-        .filter(q => attempt.answers.hasOwnProperty(q.id) || questionsAnswered.find(qa => qa.id === q.id)) // Consider only questions in the attempt
-        .filter(q => attempt.answers[q.id] !== q.correctAnswer);
 
     const handleDownloadPDF = async () => {
         if (isDownloading) return;
@@ -523,17 +518,6 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
         }
     };
     
-    const getAnswerText = (question: Question, answerKey: string | undefined): string => {
-        if (answerKey === undefined) {
-            return "لم تتم الإجابة";
-        }
-        if (question.type === QuestionType.MCQ) {
-            const optionIndex = parseInt(answerKey, 10);
-            return question.options?.[optionIndex] ?? "إجابة غير صالحة";
-        }
-        return answerKey === 'true' ? 'صح' : 'خطأ';
-    };
-
     return (
         <div className="max-w-4xl p-2 mx-auto bg-gray-200 sm:p-8 rounded-lg">
             {/* This is the printable/downloadable area */}
@@ -552,57 +536,56 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
                     </div>
                 </header>
 
-                <h1 className="my-6 text-3xl font-bold text-center text-brand-navy">شهادة إتمام امتحان</h1>
-                <p className="text-center text-lg text-gray-700 mb-6">تشهد كلية الحقوق بقنا (نظام تجريبي) بأن الطالب/ة</p>
-                <p className="text-center text-2xl font-bold text-brand-navy mb-6">{currentUser!.fullName}</p>
+                <h1 className="my-8 text-3xl font-bold text-center text-brand-navy">إفادة بنتيجة اختبار إلكتروني</h1>
                 
-                {/* Student Info */}
-                <section className="grid grid-cols-2 gap-x-8 gap-y-2 mb-6 p-4 border rounded-lg">
-                    <div><span className="font-bold">اسم المستخدم:</span> {currentUser!.username}</div>
-                    <div><span className="font-bold">المادة:</span> {subject.name}</div>
-                    <div><span className="font-bold">تاريخ الامتحان:</span> {new Date(attempt.startTime).toLocaleDateString('ar-EG')}</div>
-                    <div className="font-bold"><span className="font-bold">التقدير العام:</span> <span className={gradeDetails.color}>{gradeDetails.grade}</span></div>
-                </section>
+                <p className="text-lg text-center text-gray-700">
+                    يشهد نظام الامتحانات التجريبي بكلية الحقوق - قنا بأن الطالب/ة:
+                </p>
+                <p className="py-4 my-4 text-3xl font-bold text-center text-white rounded-md brand-navy">
+                    {currentUser!.fullName}
+                </p>
+                
+                <p className="text-lg text-center text-gray-700">
+                    قد أتم اختبار مادة:
+                </p>
+                <p className="my-4 text-2xl font-bold text-center text-brand-navy">
+                    {subject.name}
+                </p>
+                
+                <p className="text-lg text-center text-gray-700">
+                    بتاريخ {new Date(attempt.startTime).toLocaleDateString('ar-EG')}، وكانت نتيجته على النحو التالي:
+                </p>
 
                 {/* Results Summary */}
-                <section className="grid grid-cols-1 gap-4 p-6 my-6 text-center text-white rounded-lg md:grid-cols-3 brand-navy">
+                <section className="grid grid-cols-1 gap-4 p-6 my-8 text-center bg-gray-50 border-t-4 border-b-4 md:grid-cols-3 border-brand-gold">
                     <div>
-                        <p className="text-sm text-gray-300">الدرجة النهائية (من 20)</p>
-                        <p className="text-3xl font-bold text-brand-gold">{finalScore}</p>
+                        <p className="text-sm text-gray-600">الدرجة النهائية (من 20)</p>
+                        <p className="text-4xl font-bold text-brand-navy">{finalScore}</p>
+                    </div>
+                    <div className="flex flex-col items-center justify-center">
+                        <p className="text-sm text-gray-600">التقدير العام</p>
+                        <p className={`text-4xl font-extrabold ${gradeDetails.color}`}>{gradeDetails.grade}</p>
                     </div>
                     <div>
-                        <p className="text-sm text-gray-300">الإجابات الصحيحة</p>
-                        <p className="text-3xl font-bold text-green-400">{attempt.score} / {attempt.totalQuestions}</p>
-                    </div>
-                    <div>
-                        <p className="text-sm text-gray-300">الإجابات الخاطئة</p>
-                        <p className="text-3xl font-bold text-red-400">{attempt.totalQuestions - attempt.score}</p>
+                        <p className="text-sm text-gray-600">الإجابات الصحيحة</p>
+                        <p className="text-4xl font-bold text-brand-navy">{attempt.score} / {attempt.totalQuestions}</p>
                     </div>
                 </section>
-                
-                {/* Incorrect Answers Review */}
-                {incorrectQuestions.length > 0 && (
-                  <section className="my-8">
-                      <h3 className="mb-4 text-xl font-bold text-brand-navy">مراجعة الإجابات الخاطئة</h3>
-                      <div className="space-y-6">
-                          {incorrectQuestions.map((q, index) => (
-                              <div key={q.id} className="p-4 bg-red-50 border-r-4 border-red-500 rounded">
-                                  <p className="font-bold text-gray-900">({index + 1}) {q.text}</p>
-                                  <p className="mt-2 text-sm text-red-700">إجابتك: {getAnswerText(q, attempt.answers[q.id])}</p>
-                                  <p className="mt-1 text-sm text-green-700">الإجابة الصحيحة: {getAnswerText(q, q.correctAnswer)}</p>
-                                  {q.explanation && <p className="mt-2 text-xs text-gray-600">التفسير: {q.explanation}</p>}
-                              </div>
-                          ))}
-                      </div>
-                  </section>
-                )}
-                
 
-                {/* Dedication */}
-                <footer className="p-4 my-6 mt-10 text-center bg-yellow-50 border-t-2 border-b-2 border-brand-gold">
-                    <h3 className="text-md font-bold text-brand-navy">إلى روح أمي الغالية</h3>
-                    <p className="text-sm text-gray-600">
-                        هذه المذكرة إهداء لروحك الطاهرة. أرجو أن يستفيد منها الجميع.
+                <div className="grid grid-cols-2 gap-8 pt-16 mt-16 text-center">
+                    <div>
+                        <p className="pb-8 border-b-2 border-gray-300">ختم شؤون الطلاب</p>
+                        <p className="mt-2 text-sm text-gray-500">(نظام تجريبي)</p>
+                    </div>
+                    <div>
+                        <p className="pb-8 border-b-2 border-gray-300">عميد الكلية</p>
+                        <p className="mt-2 text-sm text-gray-500">(نظام تجريبي)</p>
+                    </div>
+                </div>
+
+                <footer className="pt-8 mt-10 text-center border-t border-gray-200">
+                    <p className="text-xs text-gray-500">
+                        هذا العمل خالص لوجه الله واهداء لروحك الطاهرة.
                     </p>
                 </footer>
             </div>
@@ -982,14 +965,25 @@ const ExamManagement: React.FC = () => {
     const { state, setState } = useContext(AppContext);
     const [viewingResultsSubjectId, setViewingResultsSubjectId] = useState<string | null>(null);
 
-    const subjectForResults = state.subjects.find(s => s.id === viewingResultsSubjectId);
-    const attemptsForSubject = (state.examAttempts || [])
-        .filter(a => a.subjectId === viewingResultsSubjectId)
-        .map(attempt => {
-            const user = state.users.find(u => u.id === attempt.userId);
-            return { ...attempt, user };
-        })
-        .sort((a, b) => b.score - a.score);
+    const subjectForResults = useMemo(() => 
+        state.subjects.find(s => s.id === viewingResultsSubjectId),
+        [state.subjects, viewingResultsSubjectId]
+    );
+
+    const attemptsForSubject = useMemo(() => {
+        if (!viewingResultsSubjectId) return [];
+        
+        const attempts = state.examAttempts || [];
+        const users = state.users || [];
+
+        return attempts
+            .filter(a => a.subjectId === viewingResultsSubjectId)
+            .map(attempt => {
+                const user = users.find(u => u.id === attempt.userId);
+                return { ...attempt, user };
+            })
+            .sort((a, b) => b.score - a.score);
+    }, [viewingResultsSubjectId, state.examAttempts, state.users]);
 
     const handleExamSettingsChange = (
         subjectId: string, 
