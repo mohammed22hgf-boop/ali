@@ -7,9 +7,10 @@ import generatePDFFromElement from './utils/pdfGenerator';
 // --- Assets & Icons ---
 const Logo = () => (
     <div className="flex items-center space-x-3 rtl:space-x-reverse">
-        <svg className="w-16 h-16 text-brand-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l-9 5 9 5 9-5-9-5z" /></svg>
+        {/* Fix: Corrected SVG attribute casing to strokeLinecap/strokeLinejoin for TSX compatibility. */}
+        <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l-9 5 9 5 9-5-9-5z" /></svg>
         <div>
-            <h1 className="text-xl font-bold text-white">كلية حقوق جامعة قنا</h1>
+            <h1 className="text-xl font-bold text-white">كلية الحقوق بقنا</h1>
             <p className="text-sm text-gray-300">الفرقة الأولى (انتساب عام)</p>
         </div>
     </div>
@@ -153,24 +154,40 @@ const LoginScreen: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen p-4 brand-navy">
-            <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-2xl">
-                <div className="flex flex-col items-center text-center">
-                    <Logo />
-                    <Badge className="bg-yellow-400 text-yellow-900 mt-4">غير رسمي</Badge>
+        <div className="flex items-center justify-center min-h-screen p-4 bg-[#0B1D3A]">
+            <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-xl">
+                <div className="flex flex-col items-center space-y-4">
+                    {/* Fix: Corrected SVG attribute casing to strokeLinecap/strokeLinejoin for TSX compatibility. */}
+                    <svg className="w-16 h-16 mx-auto text-brand-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l-9 5 9 5 9-5-9-5z" /></svg>
+                    <h2 className="text-lg text-gray-500">الفرقة الأولى (انتساب عام)</h2>
+                    <Badge className="bg-yellow-400 text-yellow-900">غير رسمي</Badge>
                 </div>
 
-                <form className="space-y-6" onSubmit={handleLogin}>
+                <form className="space-y-6 text-right" onSubmit={handleLogin}>
                     <div>
-                        <label htmlFor="username" className="block text-sm font-medium text-gray-700">الاسم الثلاثي الكامل</label>
-                        <input id="username" type="text" value={username} onChange={e => setUsername(e.target.value)} required className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-gold focus:border-brand-gold" />
+                        <label htmlFor="username" className="block mb-2 text-sm font-medium text-gray-700">الاسم الثلاثي الكامل</label>
+                        <input 
+                            id="username" 
+                            type="text" 
+                            value={username} 
+                            onChange={e => setUsername(e.target.value)} 
+                            required 
+                            className="w-full px-4 py-3 text-gray-900 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-gold focus:border-transparent" 
+                        />
                     </div>
                     <div>
-                        <label htmlFor="password"  className="block text-sm font-medium text-gray-700">كلمة المرور</label>
-                        <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand-gold focus:border-brand-gold" />
+                        <label htmlFor="password"  className="block mb-2 text-sm font-medium text-gray-700">كلمة المرور</label>
+                        <input 
+                            id="password" 
+                            type="password" 
+                            value={password} 
+                            onChange={e => setPassword(e.target.value)} 
+                            required 
+                            className="w-full px-4 py-3 text-gray-900 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-gold focus:border-transparent" 
+                        />
                     </div>
-                    {error && <p className="text-sm text-red-600">{error}</p>}
-                    <button type="submit" className="w-full py-2 text-white transition-colors duration-300 rounded-md shadow-lg brand-gold hover:bg-yellow-500">
+                    {error && <p className="text-sm text-center text-red-500">{error}</p>}
+                    <button type="submit" className="w-full py-3 text-lg font-bold text-gray-900 transition-colors duration-300 rounded-md shadow-lg brand-gold hover:bg-yellow-500">
                         تسجيل الدخول
                     </button>
                 </form>
@@ -181,6 +198,7 @@ const LoginScreen: React.FC = () => {
         </div>
     );
 };
+
 
 // --- Header ---
 const Header: React.FC = () => {
@@ -252,17 +270,28 @@ const StudentDashboard: React.FC<{onStartExam: (subject: Subject) => void}> = ({
             <h2 className="mb-6 text-3xl font-bold text-brand-navy">المواد الدراسية المتاحة</h2>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {state.subjects.map(subject => {
-                    const hasAttempted = state.examAttempts.some(a => a.userId === currentUser!.id && a.subjectId === subject.id);
-                    const isOpen = state.examSettings[subject.id]?.isOpen;
+                    const hasAttempted = (state.examAttempts || []).some(a => a.userId === currentUser!.id && a.subjectId === subject.id);
+                    const examSettings = state.examSettings[subject.id] || { isOpen: false, allowRetakes: false };
+                    const { isOpen, allowRetakes } = examSettings;
+
+                    const canTakeExam = isOpen && (!hasAttempted || allowRetakes);
+                    let buttonText = 'ابدأ الامتحان';
+                    if (!isOpen) {
+                        buttonText = 'الامتحان مغلق';
+                    } else if (hasAttempted && !allowRetakes) {
+                        buttonText = 'تم أداء الامتحان';
+                    } else if (hasAttempted && allowRetakes) {
+                        buttonText = 'إعادة الامتحان';
+                    }
                     
                     return (
                     <div key={subject.id} className="p-6 bg-white rounded-lg shadow-md">
                         <h3 className="mb-4 text-xl font-bold text-brand-navy">{subject.name}</h3>
                         <button 
                             onClick={() => onStartExam(subject)}
-                            disabled={hasAttempted || !isOpen}
+                            disabled={!canTakeExam}
                             className="w-full px-4 py-2 font-bold text-white transition rounded-md brand-gold hover:bg-yellow-500 disabled:bg-gray-400 disabled:cursor-not-allowed">
-                            {hasAttempted ? 'تم أداء الامتحان' : (isOpen ? 'ابدأ الامتحان' : 'الامتحان مغلق')}
+                           {buttonText}
                         </button>
                     </div>
                 )})}
@@ -272,6 +301,11 @@ const StudentDashboard: React.FC<{onStartExam: (subject: Subject) => void}> = ({
 };
 
 const PreExamScreen: React.FC<{ subject: Subject; onBegin: () => void }> = ({ subject, onBegin }) => {
+    const { state } = useContext(AppContext);
+    const settings = state.examSettings[subject.id];
+    const questionCount = settings?.questionCount || 60;
+    const durationMinutes = settings?.durationMinutes || 60;
+
     return (
         <div className="max-w-3xl p-8 mx-auto bg-white rounded-lg shadow-lg">
             <h2 className="mb-4 text-2xl font-bold text-center text-brand-navy">تعليمات امتحان: {subject.name}</h2>
@@ -285,8 +319,8 @@ const PreExamScreen: React.FC<{ subject: Subject; onBegin: () => void }> = ({ su
             </div>
             <div className="space-y-3 text-gray-800">
                 <p>• هذا الموقع <span className="font-bold text-red-600">غير رسمي</span> وهو لأغراض التدريب فقط.</p>
-                <p>• مدة الامتحان <span className="font-bold">30 دقيقة</span>.</p>
-                <p>• يتكون الامتحان من <span className="font-bold">30 سؤال</span> (25 اختيار من متعدد و 5 صح وخطأ).</p>
+                <p>• مدة الامتحان <span className="font-bold">{durationMinutes} دقيقة</span>.</p>
+                <p>• يتكون الامتحان من <span className="font-bold">{questionCount} سؤال</span>.</p>
                 <p>• بمجرد الضغط على زر "ابدأ الامتحان"، سيبدأ المؤقت <span className="font-bold">فورًا</span> ولا يمكن إيقافه.</p>
                 <p>• سيتم تسليم الامتحان تلقائيًا عند انتهاء الوقت.</p>
             </div>
@@ -301,22 +335,39 @@ const PreExamScreen: React.FC<{ subject: Subject; onBegin: () => void }> = ({ su
 
 const ExamScreen: React.FC<{ subject: Subject; onFinish: (attempt: ExamAttempt) => void }> = ({ subject, onFinish }) => {
     const { state, setState, currentUser } = useContext(AppContext);
+    const settings = state.examSettings[subject.id];
+    const questionCount = settings?.questionCount || 60;
+    const durationMinutes = settings?.durationMinutes || 60;
+
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentQIndex, setCurrentQIndex] = useState(0);
     const [answers, setAnswers] = useState<{ [questionId: string]: string }>({});
-    const [timeLeft, setTimeLeft] = useState(30 * 60);
+    const [timeLeft, setTimeLeft] = useState(durationMinutes * 60);
 
     const shuffleArray = <T,>(array: T[]): T[] => {
         return [...array].sort(() => Math.random() - 0.5);
     };
 
     useEffect(() => {
-        const subjectQuestions = state.questions.filter(q => q.subjectId === subject.id);
-        const mcq = shuffleArray(subjectQuestions.filter(q => q.type === QuestionType.MCQ)).slice(0, 25);
-        const tf = shuffleArray(subjectQuestions.filter(q => q.type === QuestionType.TRUE_FALSE)).slice(0, 5);
-        setQuestions(shuffleArray([...mcq, ...tf]));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [subject.id]);
+        const sectionSetting = state.examSettings[subject.id]?.section;
+        let allSubjectQuestions = state.questions.filter(q => q.subjectId === subject.id);
+
+        if (sectionSetting && sectionSetting !== 'all') {
+            allSubjectQuestions = allSubjectQuestions.filter(q => q.section === sectionSetting);
+        }
+
+        const mcqCount = Math.round(questionCount * 0.8);
+        const tfCount = questionCount - mcqCount;
+
+        const mcq = shuffleArray(allSubjectQuestions.filter(q => q.type === QuestionType.MCQ)).slice(0, mcqCount);
+        const tf = shuffleArray(allSubjectQuestions.filter(q => q.type === QuestionType.TRUE_FALSE)).slice(0, tfCount);
+        
+        const finalQuestions = shuffleArray([...mcq, ...tf]);
+        
+        // Ensure the total number of questions doesn't exceed the setting
+        setQuestions(finalQuestions.slice(0, questionCount));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [subject.id, questionCount]);
 
     const submitExam = useCallback(() => {
         let score = 0;
@@ -331,7 +382,7 @@ const ExamScreen: React.FC<{ subject: Subject; onFinish: (attempt: ExamAttempt) 
             id: `attempt_${Date.now()}`,
             userId: currentUser!.id,
             subjectId: subject.id,
-            startTime: Date.now() - (30 * 60 - timeLeft) * 1000,
+            startTime: Date.now() - (durationMinutes * 60 - timeLeft) * 1000,
             endTime: Date.now(),
             answers: finalAnswers,
             score,
@@ -341,11 +392,11 @@ const ExamScreen: React.FC<{ subject: Subject; onFinish: (attempt: ExamAttempt) 
 
         setState(prevState => ({
             ...prevState,
-            examAttempts: [...prevState.examAttempts, newAttempt]
+            examAttempts: [...(prevState.examAttempts || []), newAttempt]
         }));
         onFinish(newAttempt);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [answers, currentUser, onFinish, questions, setState, subject.id, timeLeft]);
+    }, [answers, currentUser, onFinish, questions, setState, subject.id, timeLeft, durationMinutes]);
 
 
     useEffect(() => {
@@ -434,6 +485,16 @@ const ExamScreen: React.FC<{ subject: Subject; onFinish: (attempt: ExamAttempt) 
     );
 };
 
+const getGradeDetails = (score: number, totalQuestions: number): { grade: string, color: string } => {
+    if (totalQuestions === 0) return { grade: 'N/A', color: 'text-gray-500' };
+    const percentage = (score / totalQuestions) * 100;
+    if (percentage < 50) return { grade: 'ساقط', color: 'text-red-500' };
+    if (percentage < 65) return { grade: 'مقبول', color: 'text-orange-500' };
+    if (percentage < 80) return { grade: 'جيد', color: 'text-blue-500' };
+    if (percentage < 90) return { grade: 'جيد جداً', color: 'text-green-500' };
+    return { grade: 'امتياز', color: 'text-purple-500' };
+};
+
 const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({ attempt, onBack }) => {
     const { state, currentUser } = useContext(AppContext);
     const [isDownloading, setIsDownloading] = useState(false);
@@ -442,6 +503,7 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
     const questionsAnswered = state.questions.filter(q => Object.keys(attempt.answers).includes(q.id));
     
     const finalScore = attempt.totalQuestions > 0 ? ((attempt.score / attempt.totalQuestions) * 20).toFixed(2) : "0.00";
+    const gradeDetails = getGradeDetails(attempt.score, attempt.totalQuestions);
     
     const incorrectQuestions = state.questions
         .filter(q => attempt.answers.hasOwnProperty(q.id) || questionsAnswered.find(qa => qa.id === q.id)) // Consider only questions in the attempt
@@ -451,7 +513,7 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
         if (isDownloading) return;
         setIsDownloading(true);
         try {
-            const filename = `report_${currentUser!.username}_${subject.id}_${new Date().toISOString().slice(0, 10)}.pdf`;
+            const filename = `certificate_${currentUser!.username}_${subject.id}.pdf`;
             await generatePDFFromElement("pdf-content", filename);
         } catch (error) {
             console.error("Failed to generate PDF:", error);
@@ -475,28 +537,31 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
     return (
         <div className="max-w-4xl p-2 mx-auto bg-gray-200 sm:p-8 rounded-lg">
             {/* This is the printable/downloadable area */}
-            <div id="pdf-content" className="p-8 bg-white shadow-lg">
+            <div id="pdf-content" className="p-8 bg-white shadow-lg border-8 border-double border-brand-gold">
                 {/* Header */}
                 <header className="flex items-start justify-between pb-4 border-b-2 border-gray-200">
                     <div className="text-right">
-                        <h2 className="text-xl font-bold text-brand-navy">كلية حقوق جامعة قنا</h2>
+                        <h2 className="text-xl font-bold text-brand-navy">كلية الحقوق بقنا</h2>
                         <p className="text-sm">الفرقة الأولى (انتساب عام)</p>
                         <p className="text-xs font-bold text-brand-gold mt-2 px-2 py-0.5 inline-block border border-brand-gold rounded-full">غير رسمي</p>
                     </div>
                     <div className="text-left">
-                        <svg className="w-16 h-16 text-brand-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l-9 5 9 5 9-5-9-5z" /></svg>
-                        <p className="text-xs text-gray-500">شعار جامعة جنوب الوادي</p>
+                        {/* Fix: Corrected SVG attribute casing to strokeLinecap/strokeLinejoin for TSX compatibility. */}
+                        <svg className="w-20 h-20 mx-auto text-brand-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l-9 5 9 5 9-5-9-5z" /></svg>
+                        <p className="mt-1 text-xs text-center text-gray-500">شعار افتراضي</p>
                     </div>
                 </header>
 
-                <h1 className="my-6 text-2xl font-bold text-center text-brand-navy">تقرير نتيجة امتحان: {subject.name}</h1>
+                <h1 className="my-6 text-3xl font-bold text-center text-brand-navy">شهادة إتمام امتحان</h1>
+                <p className="text-center text-lg text-gray-700 mb-6">تشهد كلية الحقوق بقنا (نظام تجريبي) بأن الطالب/ة</p>
+                <p className="text-center text-2xl font-bold text-brand-navy mb-6">{currentUser!.fullName}</p>
                 
                 {/* Student Info */}
                 <section className="grid grid-cols-2 gap-x-8 gap-y-2 mb-6 p-4 border rounded-lg">
-                    <div><span className="font-bold">اسم الطالب:</span> {currentUser!.fullName}</div>
                     <div><span className="font-bold">اسم المستخدم:</span> {currentUser!.username}</div>
-                    <div><span className="font-bold">تاريخ الامتحان:</span> {new Date(attempt.startTime).toLocaleString('ar-EG')}</div>
                     <div><span className="font-bold">المادة:</span> {subject.name}</div>
+                    <div><span className="font-bold">تاريخ الامتحان:</span> {new Date(attempt.startTime).toLocaleDateString('ar-EG')}</div>
+                    <div className="font-bold"><span className="font-bold">التقدير العام:</span> <span className={gradeDetails.color}>{gradeDetails.grade}</span></div>
                 </section>
 
                 {/* Results Summary */}
@@ -507,7 +572,7 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
                     </div>
                     <div>
                         <p className="text-sm text-gray-300">الإجابات الصحيحة</p>
-                        <p className="text-3xl font-bold text-green-400">{attempt.score}</p>
+                        <p className="text-3xl font-bold text-green-400">{attempt.score} / {attempt.totalQuestions}</p>
                     </div>
                     <div>
                         <p className="text-sm text-gray-300">الإجابات الخاطئة</p>
@@ -516,23 +581,22 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
                 </section>
                 
                 {/* Incorrect Answers Review */}
-                <section className="my-8">
-                    <h3 className="mb-4 text-xl font-bold text-brand-navy">مراجعة الإجابات الخاطئة</h3>
-                    {incorrectQuestions.length > 0 ? (
-                        <div className="space-y-6">
-                            {incorrectQuestions.map((q, index) => (
-                                <div key={q.id} className="p-4 bg-red-50 border-r-4 border-red-500 rounded">
-                                    <p className="font-bold text-gray-900">({index + 1}) {q.text}</p>
-                                    <p className="mt-2 text-sm text-red-700">إجابتك: {getAnswerText(q, attempt.answers[q.id])}</p>
-                                    <p className="mt-1 text-sm text-green-700">الإجابة الصحيحة: {getAnswerText(q, q.correctAnswer)}</p>
-                                    {q.explanation && <p className="mt-2 text-xs text-gray-600">التفسير: {q.explanation}</p>}
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="p-4 text-center text-green-800 bg-green-100 rounded-lg">رائع! لقد أجبت على جميع الأسئلة بشكل صحيح.</p>
-                    )}
-                </section>
+                {incorrectQuestions.length > 0 && (
+                  <section className="my-8">
+                      <h3 className="mb-4 text-xl font-bold text-brand-navy">مراجعة الإجابات الخاطئة</h3>
+                      <div className="space-y-6">
+                          {incorrectQuestions.map((q, index) => (
+                              <div key={q.id} className="p-4 bg-red-50 border-r-4 border-red-500 rounded">
+                                  <p className="font-bold text-gray-900">({index + 1}) {q.text}</p>
+                                  <p className="mt-2 text-sm text-red-700">إجابتك: {getAnswerText(q, attempt.answers[q.id])}</p>
+                                  <p className="mt-1 text-sm text-green-700">الإجابة الصحيحة: {getAnswerText(q, q.correctAnswer)}</p>
+                                  {q.explanation && <p className="mt-2 text-xs text-gray-600">التفسير: {q.explanation}</p>}
+                              </div>
+                          ))}
+                      </div>
+                  </section>
+                )}
+                
 
                 {/* Dedication */}
                 <footer className="p-4 my-6 mt-10 text-center bg-yellow-50 border-t-2 border-b-2 border-brand-gold">
@@ -549,7 +613,7 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
                     العودة إلى لوحة التحكم
                 </button>
                 <button onClick={handleDownloadPDF} disabled={isDownloading} className="w-full px-6 py-2 text-white bg-blue-600 rounded-md md:w-auto hover:bg-blue-700 disabled:bg-gray-500 disabled:cursor-wait">
-                    {isDownloading ? 'جاري التحميل...' : 'تحميل النتيجة (PDF)'}
+                    {isDownloading ? 'جاري التحميل...' : 'طباعة الشهادة (PDF)'}
                 </button>
             </div>
         </div>
@@ -852,7 +916,7 @@ const LiveMonitor: React.FC = () => {
     const { state } = useContext(AppContext);
     // This is a simulation. In a real app, this would come from websockets.
     const onlineStudents = state.users.filter(u => u.role === UserRole.STUDENT).slice(0, 5); // Increased for more data
-    const studentsInExam = state.examAttempts.filter(a => a.status === 'in-progress'); // This will always be empty in our sim
+    const studentsInExam = (state.examAttempts || []).filter(a => a.status === 'in-progress'); // This will always be empty in our sim
 
     return (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -916,15 +980,35 @@ const StudentManagement: React.FC = () => {
 
 const ExamManagement: React.FC = () => {
     const { state, setState } = useContext(AppContext);
+    const [viewingResultsSubjectId, setViewingResultsSubjectId] = useState<string | null>(null);
 
-    const toggleExamStatus = (subjectId: string) => {
+    const subjectForResults = state.subjects.find(s => s.id === viewingResultsSubjectId);
+    const attemptsForSubject = (state.examAttempts || [])
+        .filter(a => a.subjectId === viewingResultsSubjectId)
+        .map(attempt => {
+            const user = state.users.find(u => u.id === attempt.userId);
+            return { ...attempt, user };
+        })
+        .sort((a, b) => b.score - a.score);
+
+    const handleExamSettingsChange = (
+        subjectId: string, 
+        key: 'isOpen' | 'section' | 'questionCount' | 'durationMinutes' | 'allowRetakes', 
+        value: any
+    ) => {
         setState(prev => {
-            const newSettings = {...prev.examSettings};
-            newSettings[subjectId].isOpen = !newSettings[subjectId].isOpen;
-            return {...prev, examSettings: newSettings};
+            const newSettings = { ...prev.examSettings };
+            const currentSettings = newSettings[subjectId] || { 
+                isOpen: true, 
+                questionCount: 60, 
+                durationMinutes: 60, 
+                allowRetakes: false 
+            };
+            newSettings[subjectId] = { ...currentSettings, [key]: value };
+            return { ...prev, examSettings: newSettings };
         });
     };
-
+    
     const resetStudentAttempt = (subjectId: string) => {
         const username = prompt("أدخل اسم المستخدم للطالب لتصفير محاولته:");
         if (!username) return;
@@ -937,7 +1021,7 @@ const ExamManagement: React.FC = () => {
 
         setState(prev => ({
             ...prev,
-            examAttempts: prev.examAttempts.filter(a => !(a.userId === user.id && a.subjectId === subjectId))
+            examAttempts: (prev.examAttempts || []).filter(a => !(a.userId === user.id && a.subjectId === subjectId))
         }));
         alert(`تم تصفير محاولة الطالب ${username} في هذه المادة.`);
     };
@@ -950,27 +1034,77 @@ const ExamManagement: React.FC = () => {
                     <thead className="text-white bg-brand-navy">
                         <tr>
                             <th className="p-3">المادة</th>
-                            <th className="p-3">الحالة</th>
+                            <th className="p-3">الإعدادات</th>
                             <th className="p-3">الإجراءات</th>
                         </tr>
                     </thead>
                     <tbody>
                         {state.subjects.map(subject => {
-                            const isOpen = state.examSettings[subject.id]?.isOpen;
+                            const settings = state.examSettings[subject.id] || { isOpen: true, questionCount: 60, durationMinutes: 60, allowRetakes: false };
+                            const subjectSections = [...new Set(state.questions.filter(q => q.subjectId === subject.id && q.section).map(q => q.section!))];
+                            const hasSections = subjectSections.length > 0;
+
                             return (
                                 <tr key={subject.id} className="border-b hover:bg-gray-50">
-                                    <td className="p-3 text-gray-900">{subject.name}</td>
-                                    <td className="p-3">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${isOpen ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                            {isOpen ? 'مفتوح' : 'مغلق'}
-                                        </span>
+                                    <td className="p-3 text-gray-900 align-top">{subject.name}</td>
+                                    <td className="p-3 text-gray-900 align-top">
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                            <div>
+                                                <label className="text-xs font-medium text-gray-600">الأسئلة:</label>
+                                                <select
+                                                    value={settings.questionCount}
+                                                    onChange={(e) => handleExamSettingsChange(subject.id, 'questionCount', parseInt(e.target.value))}
+                                                    className="w-full p-1 text-sm border border-gray-300 rounded-md"
+                                                >
+                                                    {[30, 40, 60, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-medium text-gray-600">الزمن (دقيقة):</label>
+                                                <select
+                                                    value={settings.durationMinutes}
+                                                    onChange={(e) => handleExamSettingsChange(subject.id, 'durationMinutes', parseInt(e.target.value))}
+                                                    className="w-full p-1 text-sm border border-gray-300 rounded-md"
+                                                >
+                                                    {[30, 40, 60, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                                                </select>
+                                            </div>
+                                            {hasSections && (
+                                                <div className="col-span-2">
+                                                    <label className="text-xs font-medium text-gray-600">القسم:</label>
+                                                    <select
+                                                        value={settings.section || 'all'}
+                                                        onChange={(e) => handleExamSettingsChange(subject.id, 'section', e.target.value)}
+                                                        className="w-full p-1 text-sm border border-gray-300 rounded-md"
+                                                    >
+                                                        <option value="all">الجميع</option>
+                                                        {subjectSections.map(section => (
+                                                          <option key={section} value={section}>{section.replace(/^[أ-ب]\.\s*/, '')}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
+                                            <div className="flex items-center col-span-2 mt-1">
+                                                <input
+                                                    type="checkbox"
+                                                    id={`retake-${subject.id}`}
+                                                    checked={settings.allowRetakes}
+                                                    onChange={() => handleExamSettingsChange(subject.id, 'allowRetakes', !settings.allowRetakes)}
+                                                    className="w-4 h-4 rounded text-brand-gold focus:ring-brand-gold"
+                                                />
+                                                <label htmlFor={`retake-${subject.id}`} className="mr-2 text-sm text-gray-700">السماح بإعادة المحاولة</label>
+                                            </div>
+                                        </div>
                                     </td>
-                                    <td className="p-3 space-x-2 rtl:space-x-reverse">
-                                        <button onClick={() => toggleExamStatus(subject.id)} className={`px-2 py-1 text-sm text-white rounded ${isOpen ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'}`}>
-                                            {isOpen ? 'إغلاق الامتحان' : 'فتح الامتحان'}
+                                    <td className="p-3 space-y-2 align-top">
+                                        <button onClick={() => handleExamSettingsChange(subject.id, 'isOpen', !settings.isOpen)} className={`w-full px-2 py-1 text-sm text-white rounded ${settings.isOpen ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'}`}>
+                                            {settings.isOpen ? 'إغلاق الامتحان' : 'فتح الامتحان'}
                                         </button>
-                                        <button onClick={() => resetStudentAttempt(subject.id)} className="px-2 py-1 text-sm text-white bg-indigo-500 rounded hover:bg-indigo-600">
+                                        <button onClick={() => resetStudentAttempt(subject.id)} className="w-full px-2 py-1 text-sm text-white bg-indigo-500 rounded hover:bg-indigo-600">
                                             تصفير محاولة
+                                        </button>
+                                        <button onClick={() => setViewingResultsSubjectId(subject.id)} className="w-full px-2 py-1 text-sm text-white bg-gray-500 rounded hover:bg-gray-600">
+                                            عرض النتائج
                                         </button>
                                     </td>
                                 </tr>
@@ -979,6 +1113,45 @@ const ExamManagement: React.FC = () => {
                     </tbody>
                 </table>
             </div>
+
+            {viewingResultsSubjectId && subjectForResults && (
+                <div className="pt-8 mt-8 border-t">
+                     <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-bold text-brand-navy">نتائج امتحان: {subjectForResults.name}</h4>
+                        <button onClick={() => setViewingResultsSubjectId(null)} className="px-3 py-1 text-sm bg-gray-200 rounded-md hover:bg-gray-300">إغلاق</button>
+                    </div>
+                    {attemptsForSubject.length > 0 ? (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-right whitespace-nowrap">
+                                <thead className="bg-gray-100">
+                                    <tr>
+                                        <th className="p-3 font-semibold text-gray-600">اسم الطالب</th>
+                                        <th className="p-3 font-semibold text-gray-600">اسم المستخدم</th>
+                                        <th className="p-3 font-semibold text-gray-600">الدرجة (من 20)</th>
+                                        <th className="p-3 font-semibold text-gray-600">التقدير العام</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {attemptsForSubject.map(attempt => {
+                                        const finalScore = attempt.totalQuestions > 0 ? ((attempt.score / attempt.totalQuestions) * 20).toFixed(2) : "0.00";
+                                        const gradeDetails = getGradeDetails(attempt.score, attempt.totalQuestions);
+                                        return (
+                                            <tr key={attempt.id} className="border-b hover:bg-gray-50">
+                                                <td className="p-3 text-gray-900">{attempt.user?.fullName || 'N/A'}</td>
+                                                <td className="p-3 text-gray-900">{attempt.user?.username || 'N/A'}</td>
+                                                <td className="p-3 text-gray-900">{finalScore}</td>
+                                                <td className={`p-3 font-bold ${gradeDetails.color}`}>{gradeDetails.grade}</td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <p className="p-4 text-center text-gray-500 bg-gray-50 rounded-md">لم يقم أي طالب بأداء هذا الامتحان بعد.</p>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

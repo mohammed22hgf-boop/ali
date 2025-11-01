@@ -30,6 +30,7 @@ export interface Question {
   options?: string[]; // For MCQ
   correctAnswer: string; // For MCQ, the index '0'-'3', for T/F 'true' or 'false'
   explanation?: string;
+  section?: string; // e.g., 'أ. علم الإجرام', 'ب. علم العقاب'
 }
 
 export interface ExamAttempt {
@@ -50,5 +51,11 @@ export interface AppState {
     questions: Question[];
     subjects: Subject[];
     examAttempts: ExamAttempt[];
-    examSettings: { [subjectId: string]: { isOpen: boolean } };
+    examSettings: { [subjectId: string]: { 
+        isOpen: boolean;
+        section?: string;
+        questionCount: number;
+        durationMinutes: number;
+        allowRetakes: boolean;
+    } };
 }
