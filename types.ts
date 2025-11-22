@@ -4,12 +4,19 @@ export enum UserRole {
   STUDENT = 'student',
 }
 
+export enum EnrollmentType {
+  INTIZAM = 'intizam', // انتظام
+  INTISAB = 'intisab', // انتساب
+}
+
 export interface User {
   id: string;
-  username: string;
-  passwordHash: string; // In a real app, this would be a hash. Here, it's plaintext for simplicity.
+  username: string; // Will be used for display or internal ID logic
+  email: string;    // Added for login
+  passwordHash: string;
   role: UserRole;
   fullName: string;
+  enrollmentType?: EnrollmentType; // Optional because admins might not need it
 }
 
 export interface Subject {
@@ -56,6 +63,6 @@ export interface AppState {
         section?: string;
         questionCount: number;
         durationMinutes: number;
-        allowRetakes: boolean;
+        allowRetakes: boolean; // Kept for backward compatibility, but specific logic overrides
     } };
 }
