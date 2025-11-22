@@ -21,6 +21,21 @@ const Badge = ({ children, className }: { children: React.ReactNode, className?:
     </span>
 );
 
+// --- Footer Component (Global Dedication) ---
+const FooterDedication: React.FC = () => {
+    return (
+        <footer className="py-6 mt-auto text-white bg-slate-800 border-t-4 border-brand-gold">
+            <div className="container mx-auto text-center px-4">
+                <p className="text-lg font-medium leading-relaxed">
+                    هذا العمل لوجه الله تعالى، وجعله الله صدقة جارية على روح أمي.
+                    <br />
+                    <span className="font-bold text-brand-gold">أسألكم الدعاء لها بالرحمة والمغفرة.</span>
+                </p>
+            </div>
+        </footer>
+    );
+};
+
 
 // --- App State Context ---
 const AppContext = createContext<{
@@ -104,12 +119,15 @@ const Main: React.FC = () => {
     const { currentUser } = useContext(AppContext);
     
     return (
-        <div className="min-h-screen bg-gray-100">
-            {currentUser ? (
-                currentUser.role === UserRole.ADMIN ? <AdminView /> : <StudentView />
-            ) : (
-                <LoginScreen />
-            )}
+        <div className="flex flex-col min-h-screen bg-gray-100">
+            <div className="flex-grow">
+                {currentUser ? (
+                    currentUser.role === UserRole.ADMIN ? <AdminView /> : <StudentView />
+                ) : (
+                    <LoginScreen />
+                )}
+            </div>
+            {currentUser && <FooterDedication />}
         </div>
     );
 };
@@ -177,78 +195,89 @@ const LoginScreen: React.FC = () => {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen p-4 bg-[#0B1D3A]">
-            <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-xl">
-                <div className="flex flex-col items-center space-y-4">
-                    <svg className="w-16 h-16 mx-auto text-brand-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l-9 5 9 5 9-5-9-5z" /></svg>
-                    <h2 className="text-lg font-bold text-gray-700">نظام الامتحانات الإلكتروني</h2>
-                    <div className="flex p-1 bg-gray-200 rounded-lg">
-                        <button onClick={() => setIsLoginMode(true)} className={`px-4 py-2 text-sm font-bold rounded-md ${isLoginMode ? 'bg-white shadow text-brand-navy' : 'text-gray-500'}`}>تسجيل الدخول</button>
-                        <button onClick={() => setIsLoginMode(false)} className={`px-4 py-2 text-sm font-bold rounded-md ${!isLoginMode ? 'bg-white shadow text-brand-navy' : 'text-gray-500'}`}>إنشاء حساب جديد</button>
+        <div className="flex flex-col min-h-screen bg-[#0B1D3A]">
+            <div className="flex flex-col items-center justify-center flex-grow p-4">
+                <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-xl">
+                    <div className="flex flex-col items-center space-y-4">
+                        <svg className="w-16 h-16 mx-auto text-brand-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l6.16-3.422A12.083 12.083 0 0112 21a12.083 12.083 0 01-6.16-10.422L12 14z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 14l-9 5 9 5 9-5-9-5z" /></svg>
+                        <h2 className="text-lg font-bold text-gray-700">نظام الامتحانات الإلكتروني</h2>
+                        <div className="flex p-1 bg-gray-200 rounded-lg">
+                            <button onClick={() => setIsLoginMode(true)} className={`px-4 py-2 text-sm font-bold rounded-md ${isLoginMode ? 'bg-white shadow text-brand-navy' : 'text-gray-500'}`}>تسجيل الدخول</button>
+                            <button onClick={() => setIsLoginMode(false)} className={`px-4 py-2 text-sm font-bold rounded-md ${!isLoginMode ? 'bg-white shadow text-brand-navy' : 'text-gray-500'}`}>إنشاء حساب جديد</button>
+                        </div>
                     </div>
-                </div>
 
-                {isLoginMode ? (
-                    <form className="space-y-6 text-right" onSubmit={handleLogin}>
-                        <div>
-                            <label className="block mb-2 text-sm font-medium text-gray-700">البريد الإلكتروني</label>
-                            <input 
-                                type="text" 
-                                value={loginEmail} 
-                                onChange={e => setLoginEmail(e.target.value)} 
-                                required 
-                                placeholder="البريد الإلكتروني أو اسم المستخدم"
-                                className="w-full px-4 py-3 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" 
-                            />
-                        </div>
-                        <div>
-                            <label className="block mb-2 text-sm font-medium text-gray-700">كلمة المرور</label>
-                            <input 
-                                type="password" 
-                                value={loginPassword} 
-                                onChange={e => setLoginPassword(e.target.value)} 
-                                required 
-                                className="w-full px-4 py-3 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" 
-                            />
-                        </div>
-                        {error && <p className="text-sm text-center text-red-500">{error}</p>}
-                        <button type="submit" className="w-full py-3 font-bold text-gray-900 bg-yellow-400 rounded-md hover:bg-yellow-500">
-                            دخول
-                        </button>
-                    </form>
-                ) : (
-                    <form className="space-y-4 text-right" onSubmit={handleRegister}>
-                        <div>
-                            <label className="block mb-1 text-sm font-medium text-gray-700">الاسم الثلاثي الكامل</label>
-                            <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" />
-                        </div>
-                        <div>
-                            <label className="block mb-1 text-sm font-medium text-gray-700">البريد الإلكتروني</label>
-                            <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                             <div>
-                                <label className="block mb-1 text-sm font-medium text-gray-700">كلمة المرور</label>
-                                <input type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" />
+                    {isLoginMode ? (
+                        <form className="space-y-6 text-right" onSubmit={handleLogin}>
+                            <div>
+                                <label className="block mb-2 text-sm font-medium text-gray-700">البريد الإلكتروني</label>
+                                <input 
+                                    type="text" 
+                                    value={loginEmail} 
+                                    onChange={e => setLoginEmail(e.target.value)} 
+                                    required 
+                                    placeholder="البريد الإلكتروني أو اسم المستخدم"
+                                    className="w-full px-4 py-3 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" 
+                                />
                             </div>
                             <div>
-                                <label className="block mb-1 text-sm font-medium text-gray-700">تأكيد كلمة المرور</label>
-                                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" />
+                                <label className="block mb-2 text-sm font-medium text-gray-700">كلمة المرور</label>
+                                <input 
+                                    type="password" 
+                                    value={loginPassword} 
+                                    onChange={e => setLoginPassword(e.target.value)} 
+                                    required 
+                                    className="w-full px-4 py-3 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" 
+                                />
                             </div>
-                        </div>
-                        <div>
-                            <label className="block mb-1 text-sm font-medium text-gray-700">نوع القيد</label>
-                            <select value={enrollmentType} onChange={e => setEnrollmentType(e.target.value as EnrollmentType)} className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none">
-                                <option value={EnrollmentType.INTISAB}>انتساب عام</option>
-                                <option value={EnrollmentType.INTIZAM}>انتظام</option>
-                            </select>
-                        </div>
-                        {error && <p className="text-sm text-center text-red-500">{error}</p>}
-                        <button type="submit" className="w-full py-3 font-bold text-gray-900 bg-yellow-400 rounded-md hover:bg-yellow-500">
-                            تسجيل حساب جديد
-                        </button>
-                    </form>
-                )}
+                            {error && <p className="text-sm text-center text-red-500">{error}</p>}
+                            <button type="submit" className="w-full py-3 font-bold text-gray-900 bg-yellow-400 rounded-md hover:bg-yellow-500">
+                                دخول
+                            </button>
+                        </form>
+                    ) : (
+                        <form className="space-y-4 text-right" onSubmit={handleRegister}>
+                            <div>
+                                <label className="block mb-1 text-sm font-medium text-gray-700">الاسم الثلاثي الكامل</label>
+                                <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" />
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-medium text-gray-700">البريد الإلكتروني</label>
+                                <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block mb-1 text-sm font-medium text-gray-700">كلمة المرور</label>
+                                    <input type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block mb-1 text-sm font-medium text-gray-700">تأكيد كلمة المرور</label>
+                                    <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-medium text-gray-700">نوع القيد</label>
+                                <select value={enrollmentType} onChange={e => setEnrollmentType(e.target.value as EnrollmentType)} className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none">
+                                    <option value={EnrollmentType.INTISAB}>انتساب عام</option>
+                                    <option value={EnrollmentType.INTIZAM}>انتظام</option>
+                                </select>
+                            </div>
+                            {error && <p className="text-sm text-center text-red-500">{error}</p>}
+                            <button type="submit" className="w-full py-3 font-bold text-gray-900 bg-yellow-400 rounded-md hover:bg-yellow-500">
+                                تسجيل حساب جديد
+                            </button>
+                        </form>
+                    )}
+                </div>
+            </div>
+            
+            {/* Dedication Footer on Login Screen */}
+            <div className="w-full p-6 text-center text-white bg-slate-900/50">
+                <p className="text-lg font-medium leading-relaxed">
+                     هذا العمل لوجه الله تعالى، وجعله الله صدقة جارية على روح أمي.
+                    <br />
+                    <span className="font-bold text-brand-gold">أسألكم الدعاء لها بالرحمة والمغفرة.</span>
+                </p>
             </div>
         </div>
     );
@@ -712,7 +741,8 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
                 </div>
 
                 <footer className="pt-6 mt-12 text-center border-t border-gray-200">
-                    <p className="text-lg font-bold text-brand-navy">عمل خيري مجاناً وحسنة جارية على روح أمي</p>
+                    <p className="text-lg font-bold text-brand-navy">هذا العمل لوجه الله تعالى، وجعله الله صدقة جارية على روح أمي.</p>
+                    <p className="mt-1 text-lg font-bold text-brand-gold">أسألكم الدعاء لها بالرحمة والمغفرة.</p>
                     <p className="mt-2 text-xs text-gray-400">System ID: {attempt.id}</p>
                 </footer>
             </div>
