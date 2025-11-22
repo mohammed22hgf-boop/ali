@@ -829,20 +829,89 @@ const QuestionForm: React.FC<{
 };
 
 const AdminView: React.FC = () => {
-    const { state } = useContext(AppContext);
-    const [tab, setTab] = useState('monitor');
+    const { state, setState } = useContext(AppContext);
+    const [tab, setTab] = useState<'monitor' | 'questions' | 'settings'>('monitor');
+
+    // Questions Tab State
+    const [selectedSubjectId, setSelectedSubjectId] = useState<string>(state.subjects[0]?.id);
+    const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+    const [isCreating, setIsCreating] = useState(false);
+
+    const handleSaveQuestion = () => {
+        if (!editingQuestion) return;
+        
+        setState(prev => {
+            const isNew = !prev.questions.find(q => q.id === editingQuestion.id);
+            let newQuestions;
+            if (isNew) {
+                newQuestions = [...prev.questions, editingQuestion];
+            } else {
+                newQuestions = prev.questions.map(q => q.id === editingQuestion.id ? editingQuestion : q);
+            }
+            return { ...prev, questions: newQuestions };
+        });
+        setEditingQuestion(null);
+        setIsCreating(false);
+    };
+
+    const handleDeleteQuestion = (id: string) => {
+        if (window.confirm('هل أنت متأكد من حذف هذا السؤال؟')) {
+            setState(prev => ({
+                ...prev,
+                questions: prev.questions.filter(q => q.id !== id)
+            }));
+        }
+    };
+
+    const createNewQuestion = () => {
+        setEditingQuestion({
+            id: `q_${Date.now()}`,
+            subjectId: selectedSubjectId,
+            type: QuestionType.MCQ,
+            text: '',
+            options: ['', '', '', ''],
+            correctAnswer: '0',
+            explanation: ''
+        });
+        setIsCreating(true);
+    };
+
+    // Settings Tab Logic
+    const updateExamSetting = (subjectId: string, field: string, value: any) => {
+        setState(prev => ({
+            ...prev,
+            examSettings: {
+                ...prev.examSettings,
+                [subjectId]: {
+                    ...prev.examSettings[subjectId] || { isOpen: false, questionCount: 20, durationMinutes: 30, allowRetakes: false },
+                    [field]: value
+                }
+            }
+        }));
+    };
+
+    const filteredQuestions = state.questions.filter(q => q.subjectId === selectedSubjectId);
 
     return (
         <>
             <Header />
             <div className="container p-4 mx-auto">
-                <div className="flex mb-6 space-x-4 border-b rtl:space-x-reverse">
-                    <button onClick={() => setTab('monitor')} className={`pb-2 px-4 text-lg transition ${tab==='monitor' ? 'border-b-4 border-brand-gold font-bold text-brand-navy' : 'text-gray-500'}`}>المراقبة والنتائج</button>
-                    {/* Add Question Management logic here if needed */}
+                {/* Tabs */}
+                <div className="flex mb-6 space-x-1 bg-white rounded-lg shadow rtl:space-x-reverse p-1">
+                    <button onClick={() => setTab('monitor')} className={`flex-1 py-3 text-sm font-bold rounded-md transition ${tab === 'monitor' ? 'bg-brand-navy text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}>
+                        المراقبة والنتائج
+                    </button>
+                    <button onClick={() => setTab('questions')} className={`flex-1 py-3 text-sm font-bold rounded-md transition ${tab === 'questions' ? 'bg-brand-navy text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}>
+                        بنك الأسئلة
+                    </button>
+                    <button onClick={() => setTab('settings')} className={`flex-1 py-3 text-sm font-bold rounded-md transition ${tab === 'settings' ? 'bg-brand-navy text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}>
+                        إعدادات الامتحانات
+                    </button>
                 </div>
 
+                {/* Content */}
                 {tab === 'monitor' && (
-                    <div className="space-y-6">
+                     <div className="space-y-6">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div className="p-6 bg-white rounded-lg shadow border-r-4 border-brand-navy">
                                 <h3 className="text-gray-500">الطلاب المسجلين</h3>
@@ -894,9 +963,120 @@ const AdminView: React.FC = () => {
                         </div>
                     </div>
                 )}
+
+                {tab === 'questions' && (
+                    <div className="bg-white rounded-lg shadow p-6">
+                        <div className="flex justify-between items-center mb-6">
+                             <div className="w-1/3">
+                                <label className="block text-sm font-bold text-gray-700 mb-1">اختر المادة</label>
+                                <select 
+                                    value={selectedSubjectId} 
+                                    onChange={e => setSelectedSubjectId(e.target.value)}
+                                    className="w-full border rounded-md p-2"
+                                >
+                                    {state.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                </select>
+                             </div>
+                             <button 
+                                onClick={createNewQuestion}
+                                className="bg-green-600 text-white px-4 py-2 rounded-md font-bold hover:bg-green-700"
+                             >
+                                + إضافة سؤال جديد
+                             </button>
+                        </div>
+
+                        {editingQuestion ? (
+                            <QuestionForm 
+                                question={editingQuestion} 
+                                setQuestion={setEditingQuestion} 
+                                onSave={handleSaveQuestion}
+                                onCancel={() => { setEditingQuestion(null); setIsCreating(false); }}
+                                subjects={state.subjects}
+                            />
+                        ) : (
+                            <div className="space-y-4">
+                                {filteredQuestions.length === 0 ? (
+                                    <p className="text-center text-gray-500 py-8">لا يوجد أسئلة مضافة لهذه المادة.</p>
+                                ) : (
+                                    filteredQuestions.map((q, idx) => (
+                                        <div key={q.id} className="border p-4 rounded-lg flex justify-between items-start bg-gray-50">
+                                            <div>
+                                                <span className="font-bold text-brand-navy ml-2">#{idx + 1}</span>
+                                                <span className="font-bold text-gray-800">{q.text}</span>
+                                                <div className="mt-2 text-sm text-gray-600">
+                                                    نوع: {q.type === QuestionType.MCQ ? 'اختيار من متعدد' : 'صح/خطأ'} | 
+                                                    الإجابة الصحيحة: {q.type === QuestionType.MCQ ? (q.options ? q.options[parseInt(q.correctAnswer)] : '') : (q.correctAnswer === 'true' ? 'صح' : 'خطأ')}
+                                                </div>
+                                            </div>
+                                            <div className="flex space-x-2 rtl:space-x-reverse">
+                                                <button 
+                                                    onClick={() => { setEditingQuestion(q); setIsCreating(false); }}
+                                                    className="text-blue-600 hover:text-blue-800 font-bold px-2"
+                                                >
+                                                    تعديل
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteQuestion(q.id)}
+                                                    className="text-red-600 hover:text-red-800 font-bold px-2"
+                                                >
+                                                    حذف
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {tab === 'settings' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {state.subjects.map(subject => {
+                            const settings = state.examSettings[subject.id] || { isOpen: false, questionCount: 60, durationMinutes: 60, allowRetakes: true };
+                            return (
+                                <div key={subject.id} className="bg-white rounded-lg shadow p-6 border-t-4 border-brand-navy">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="font-bold text-lg text-brand-navy">{subject.name}</h3>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={settings.isOpen} 
+                                                onChange={(e) => updateExamSetting(subject.id, 'isOpen', e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                            <span className="mr-3 text-sm font-medium text-gray-900">{settings.isOpen ? 'مفعل' : 'مغلق'}</span>
+                                        </label>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">عدد الأسئلة</label>
+                                            <input 
+                                                type="number" 
+                                                value={settings.questionCount} 
+                                                onChange={(e) => updateExamSetting(subject.id, 'questionCount', parseInt(e.target.value))}
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 border" 
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">مدة الامتحان (دقيقة)</label>
+                                            <input 
+                                                type="number" 
+                                                value={settings.durationMinutes} 
+                                                onChange={(e) => updateExamSetting(subject.id, 'durationMinutes', parseInt(e.target.value))}
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 border" 
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </>
     );
-};
+}
 
 export default App;
