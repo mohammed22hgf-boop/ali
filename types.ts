@@ -47,6 +47,7 @@ export interface ExamAttempt {
   startTime: number;
   endTime: number;
   answers: { [questionId: string]: string };
+  questionIds?: string[]; // New: Stores the specific list of questions presented in this attempt
   score: number;
   totalQuestions: number;
   status: 'completed' | 'in-progress';

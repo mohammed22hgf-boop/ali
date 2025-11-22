@@ -465,6 +465,8 @@ const ExamScreen: React.FC<{ subject: Subject; onFinish: (attempt: ExamAttempt) 
             startTime: Date.now() - (durationMinutes * 60 - timeLeft) * 1000,
             endTime: Date.now(),
             answers: finalAnswers,
+            // IMPORTANT: Save the list of questions to ensure full review even for skipped questions
+            questionIds: questions.map(q => q.id),
             score,
             totalQuestions: questions.length,
             status: 'completed'
@@ -564,31 +566,41 @@ const getGradeDetails = (score: number, totalQuestions: number): { grade: string
 const FullExamReview: React.FC<{ attempt: ExamAttempt }> = ({ attempt }) => {
     const { state } = useContext(AppContext);
 
-    // To reconstruct the exact questions the user saw, we iterate the keys of the answers object.
-    // This assumes every question shown was answered or initialized in the answers object.
+    // Reconstruct the exact list of questions presented in the exam.
+    // We prefer `attempt.questionIds` (new format).
+    // Fallback to `Object.keys(attempt.answers)` for backward compatibility (old format), 
+    // though old format will miss unanswered questions.
     const reviewedQuestions = useMemo(() => {
-        return Object.keys(attempt.answers).map(qId => {
+        const idsToReview = attempt.questionIds || Object.keys(attempt.answers);
+        
+        return idsToReview.map(qId => {
             const question = state.questions.find(q => q.id === qId);
             if (!question) return null;
-            const userAnswer = attempt.answers[qId];
+            const userAnswer = attempt.answers[qId]; // May be undefined if skipped
             const isCorrect = userAnswer === question.correctAnswer;
             return { question, userAnswer, isCorrect };
-        }).filter(x => x !== null) as { question: Question, userAnswer: string, isCorrect: boolean }[];
+        }).filter(x => x !== null) as { question: Question, userAnswer: string | undefined, isCorrect: boolean }[];
     }, [attempt, state.questions]);
 
     return (
         <div className="p-6 mt-8 bg-white rounded-lg shadow-md">
-            <h3 className="mb-4 text-2xl font-bold text-center text-brand-navy">مراجعة الإجابات (الصحيحة والخاطئة)</h3>
+            <h3 className="mb-4 text-2xl font-bold text-center text-brand-navy">مراجعة الإجابات والأسئلة الكاملة</h3>
             <div className="space-y-6">
                 {reviewedQuestions.map(({ question, userAnswer, isCorrect }, index) => {
                     let userAnswerText = userAnswer;
                     let correctAnswerText = question.correctAnswer;
                     
-                    if (question.type === QuestionType.MCQ && question.options) {
+                    if (!userAnswer) {
+                         userAnswerText = "لم يتم الإجابة";
+                    } else if (question.type === QuestionType.MCQ && question.options) {
                         userAnswerText = question.options[parseInt(userAnswer)] || "لم تجب";
-                        correctAnswerText = question.options[parseInt(question.correctAnswer)];
                     } else if (question.type === QuestionType.TRUE_FALSE) {
                         userAnswerText = userAnswer === 'true' ? 'صح' : 'خطأ';
+                    }
+
+                    if (question.type === QuestionType.MCQ && question.options) {
+                        correctAnswerText = question.options[parseInt(question.correctAnswer)];
+                    } else if (question.type === QuestionType.TRUE_FALSE) {
                         correctAnswerText = question.correctAnswer === 'true' ? 'صح' : 'خطأ';
                     }
 
@@ -667,7 +679,8 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
                 
                 <div className="space-y-6 text-center">
                     <p className="text-xl text-gray-800">تشهد إدارة النظام بأن الطالب/ة</p>
-                    <p className="inline-block px-8 py-2 text-3xl font-bold text-white rounded-lg bg-brand-navy shadow-md">
+                    {/* Ensure full width and breaking for very long names */}
+                    <p className="inline-block max-w-full px-8 py-2 text-3xl font-bold text-white rounded-lg bg-brand-navy shadow-md whitespace-normal break-words">
                         {currentUser!.fullName}
                     </p>
                     <p className="text-xl text-gray-800">قد أتم اختبار مادة <span className="font-bold text-brand-gold">{subject.name}</span></p>
