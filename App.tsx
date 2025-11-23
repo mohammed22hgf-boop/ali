@@ -395,7 +395,7 @@ const StudentDashboard: React.FC<{onStartExam: (subject: Subject) => void}> = ({
                         
                         {lastScore !== null && (
                             <div className="mb-4 text-sm text-gray-600">
-                                آخر درجة: <span className="font-bold text-brand-navy">{((lastScore / totalQs) * 20).toFixed(1)} من 20</span>
+                                آخر درجة: <span className="font-bold text-brand-navy">{((lastScore / totalQs) * 100).toFixed(1)} من 100</span>
                             </div>
                         )}
 
@@ -672,7 +672,8 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
     
     const subject = state.subjects.find(s => s.id === attempt.subjectId)!;
     
-    const finalScore = attempt.totalQuestions > 0 ? ((attempt.score / attempt.totalQuestions) * 20).toFixed(2) : "0.00";
+    // Updated grading logic to be out of 100
+    const finalScore = attempt.totalQuestions > 0 ? ((attempt.score / attempt.totalQuestions) * 100).toFixed(0) : "0";
     const gradeDetails = getGradeDetails(attempt.score, attempt.totalQuestions);
 
     const handleDownloadPDF = async () => {
@@ -708,10 +709,12 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
                 
                 <div className="space-y-6 text-center">
                     <p className="text-xl text-gray-800">تشهد إدارة النظام بأن الطالب/ة</p>
-                    {/* Ensure full width and breaking for very long names */}
-                    <p className="inline-block max-w-full px-8 py-2 text-3xl font-bold text-white rounded-lg bg-brand-navy shadow-md whitespace-normal break-words">
-                        {currentUser!.fullName}
-                    </p>
+                    {/* Updated name display to be more compatible with PDF generation and clearer */}
+                    <div className="my-4">
+                        <h3 className="text-3xl font-bold text-brand-navy decoration-brand-gold underline decoration-4 underline-offset-8">
+                            {currentUser?.fullName || "اسم غير متوفر"}
+                        </h3>
+                    </div>
                     <p className="text-xl text-gray-800">قد أتم اختبار مادة <span className="font-bold text-brand-gold">{subject.name}</span></p>
                     <p className="text-gray-600">بتاريخ: {new Date(attempt.endTime).toLocaleString('ar-EG')}</p>
                 </div>
@@ -719,7 +722,8 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
                 <section className="grid grid-cols-3 gap-4 p-6 my-10 border rounded-lg bg-gray-50 border-brand-gold">
                     <div className="text-center">
                         <p className="text-gray-500">الدرجة</p>
-                        <p className="text-3xl font-bold text-brand-navy">{finalScore} / 20</p>
+                        {/* Display score out of 100 */}
+                        <p className="text-3xl font-bold text-brand-navy">{finalScore} / 100</p>
                     </div>
                     <div className="text-center border-r border-l border-gray-300">
                         <p className="text-gray-500">التقدير</p>
@@ -977,7 +981,7 @@ const AdminView: React.FC = () => {
                                             <th className="p-4 text-sm font-bold text-gray-600">الطالب</th>
                                             <th className="p-4 text-sm font-bold text-gray-600">نوع القيد</th>
                                             <th className="p-4 text-sm font-bold text-gray-600">المادة</th>
-                                            <th className="p-4 text-sm font-bold text-gray-600">الدرجة (20)</th>
+                                            <th className="p-4 text-sm font-bold text-gray-600">الدرجة (100)</th>
                                             <th className="p-4 text-sm font-bold text-gray-600">وقت الدخول</th>
                                         </tr>
                                     </thead>
@@ -990,7 +994,7 @@ const AdminView: React.FC = () => {
                                                     <td className="p-4 font-bold text-brand-navy">{u?.fullName}</td>
                                                     <td className="p-4 text-sm text-gray-600">{u?.enrollmentType === EnrollmentType.INTIZAM ? 'انتظام' : 'انتساب'}</td>
                                                     <td className="p-4">{s?.name}</td>
-                                                    <td className="p-4 font-bold">{((a.score / a.totalQuestions) * 20).toFixed(1)}</td>
+                                                    <td className="p-4 font-bold">{((a.score / a.totalQuestions) * 100).toFixed(1)}</td>
                                                     <td className="p-4 text-sm text-gray-500">{new Date(a.startTime).toLocaleString('ar-EG')}</td>
                                                 </tr>
                                             );
