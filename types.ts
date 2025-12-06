@@ -17,6 +17,8 @@ export interface User {
   role: UserRole;
   fullName: string;
   enrollmentType?: EnrollmentType; // Optional because admins might not need it
+  failedLoginAttempts: number; // New: Track wrong password attempts
+  isLocked: boolean; // New: Lock account after 2 wrong attempts
 }
 
 export interface Subject {
@@ -40,10 +42,13 @@ export interface Question {
   section?: string; // e.g., 'أ. علم الإجرام', 'ب. علم العقاب'
 }
 
+export type ExamType = 'trial' | 'final';
+
 export interface ExamAttempt {
   id: string;
   userId: string;
   subjectId: string;
+  examType: ExamType; // 'trial' or 'final'
   startTime: number;
   endTime: number;
   answers: { [questionId: string]: string };

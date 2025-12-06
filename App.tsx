@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, createContext, useContext, useCallback, useMemo } from 'react';
-import { User, UserRole, Subject, Question, ExamAttempt, AppState, QuestionType, EnrollmentType } from './types';
+import { User, UserRole, Subject, Question, ExamAttempt, AppState, QuestionType, EnrollmentType, ExamType } from './types';
 import { initializeDB, getDB, saveDB } from './services/database';
 import generatePDFFromElement from './utils/pdfGenerator';
 
@@ -42,14 +42,14 @@ const AppContext = createContext<{
     state: AppState;
     setState: React.Dispatch<React.SetStateAction<AppState>>;
     currentUser: User | null;
-    login: (email: string, passwordHash: string) => boolean;
+    login: (name: string, passwordHash: string) => { success: boolean, message?: string };
     register: (user: User) => boolean;
     logout: () => void;
 }>({
     state: initializeDB(),
     setState: () => {},
     currentUser: null,
-    login: () => false,
+    login: () => ({ success: false }),
     register: () => false,
     logout: () => {},
 });
@@ -65,23 +65,57 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         saveDB(state);
     }, [state]);
 
-    const login = (email: string, passwordHash: string): boolean => {
-        const trimmedEmail = email.trim();
-        const user = state.users.find(u => 
-            (u.email.toLowerCase() === trimmedEmail.toLowerCase() || u.username === trimmedEmail)
-            && u.passwordHash === passwordHash
+    const login = (name: string, passwordHash: string): { success: boolean, message?: string } => {
+        const trimmedName = name.trim();
+        
+        // Find user by Full Name OR Username OR Email (to support admin and flexibility)
+        let user = state.users.find(u => 
+            u.fullName === trimmedName || 
+            u.username === trimmedName ||
+            u.email.toLowerCase() === trimmedName.toLowerCase()
         );
         
-        if (user) {
-            setCurrentUser(user);
-            sessionStorage.setItem('currentUser', JSON.stringify(user));
-            return true;
+        if (!user) {
+            return { success: false, message: 'المستخدم غير موجود' };
         }
-        return false;
+
+        if (user.isLocked) {
+            return { success: false, message: 'تم قفل الحساب بسبب تكرار كلمة المرور الخاطئة. يرجى مراجعة المسؤول.' };
+        }
+
+        if (user.passwordHash === passwordHash) {
+            // Success: Reset failed attempts
+            const updatedUser = { ...user, failedLoginAttempts: 0 };
+            const updatedUsers = state.users.map(u => u.id === user!.id ? updatedUser : u);
+            
+            setState(prev => ({ ...prev, users: updatedUsers }));
+            setCurrentUser(updatedUser);
+            sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
+            return { success: true };
+        } else {
+            // Failure: Increment attempts and possibly lock
+            const newAttempts = (user.failedLoginAttempts || 0) + 1;
+            const shouldLock = newAttempts >= 2 && user.role !== UserRole.ADMIN; // Admins don't get locked out easily for safety
+            
+            const updatedUser = { 
+                ...user, 
+                failedLoginAttempts: newAttempts,
+                isLocked: shouldLock
+            };
+            
+            const updatedUsers = state.users.map(u => u.id === user!.id ? updatedUser : u);
+            setState(prev => ({ ...prev, users: updatedUsers }));
+            
+            if (shouldLock) {
+                return { success: false, message: 'تم قفل الحساب. لقد أدخلت كلمة المرور خطأ مرتين.' };
+            } else {
+                return { success: false, message: 'كلمة المرور غير صحيحة. انتبه: الخطأ القادم سيؤدي لقفل الحساب.' };
+            }
+        }
     };
 
     const register = (newUser: User): boolean => {
-        const existingUser = state.users.find(u => u.email.toLowerCase() === newUser.email.toLowerCase());
+        const existingUser = state.users.find(u => u.fullName === newUser.fullName || u.email === newUser.email);
         if (existingUser) return false;
 
         setState(prevState => ({
@@ -138,24 +172,31 @@ const LoginScreen: React.FC = () => {
     const [isLoginMode, setIsLoginMode] = useState(true);
     
     // Login State
-    const [loginEmail, setLoginEmail] = useState('');
+    const [loginName, setLoginName] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
+    const [loginPrayerChecked, setLoginPrayerChecked] = useState(false);
     
     // Register State
     const [fullName, setFullName] = useState('');
-    const [regEmail, setRegEmail] = useState('');
-    const [regPassword, setRegPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
+    const [regPassword, setRegPassword] = useState('0000');
+    const [confirmPassword, setConfirmPassword] = useState('0000');
     const [enrollmentType, setEnrollmentType] = useState<EnrollmentType>(EnrollmentType.INTISAB);
+    const [regPrayerChecked, setRegPrayerChecked] = useState(false);
 
     const [error, setError] = useState('');
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        const success = login(loginEmail, loginPassword);
-        if (!success) {
-            setError('البريد الإلكتروني أو كلمة المرور غير صحيحة.');
+        
+        if (!loginPrayerChecked) {
+            setError('يجب قراءة الفاتحة والترحم على والدة المبرمج للدخول.');
+            return;
+        }
+
+        const result = login(loginName, loginPassword);
+        if (!result.success) {
+            setError(result.message || 'خطأ في تسجيل الدخول');
         }
     };
 
@@ -163,13 +204,18 @@ const LoginScreen: React.FC = () => {
         e.preventDefault();
         setError('');
         
+        if (!regPrayerChecked) {
+            setError('يجب قراءة الفاتحة والترحم على والدة المبرمج للتسجيل.');
+            return;
+        }
+
         if (regPassword !== confirmPassword) {
             setError('كلمتا المرور غير متطابقتين.');
             return;
         }
 
         if (regPassword.length < 4) {
-            setError('يجب أن تتكون كلمة المرور من 4 أحرف على الأقل.');
+            setError('يجب أن تتكون كلمة المرور من 4 أرقام على الأقل.');
             return;
         }
 
@@ -181,16 +227,18 @@ const LoginScreen: React.FC = () => {
         const newUser: User = {
             id: `student_${Date.now()}`,
             username: String(maxNumericId + 1),
-            email: regEmail,
+            email: `student${maxNumericId + 1}@law.edu`, // Placeholder email
             passwordHash: regPassword,
             fullName: fullName,
             role: UserRole.STUDENT,
-            enrollmentType: enrollmentType
+            enrollmentType: enrollmentType,
+            failedLoginAttempts: 0,
+            isLocked: false
         };
 
         const success = register(newUser);
         if (!success) {
-            setError('هذا البريد الإلكتروني مسجل بالفعل.');
+            setError('هذا المستخدم مسجل بالفعل.');
         }
     };
 
@@ -210,13 +258,13 @@ const LoginScreen: React.FC = () => {
                     {isLoginMode ? (
                         <form className="space-y-6 text-right" onSubmit={handleLogin}>
                             <div>
-                                <label className="block mb-2 text-sm font-medium text-gray-700">البريد الإلكتروني</label>
+                                <label className="block mb-2 text-sm font-medium text-gray-700">الاسم الثلاثي (بالعربي)</label>
                                 <input 
                                     type="text" 
-                                    value={loginEmail} 
-                                    onChange={e => setLoginEmail(e.target.value)} 
+                                    value={loginName} 
+                                    onChange={e => setLoginName(e.target.value)} 
                                     required 
-                                    placeholder="البريد الإلكتروني أو اسم المستخدم"
+                                    placeholder="ادخل اسمك المسجل به"
                                     className="w-full px-4 py-3 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" 
                                 />
                             </div>
@@ -227,32 +275,43 @@ const LoginScreen: React.FC = () => {
                                     value={loginPassword} 
                                     onChange={e => setLoginPassword(e.target.value)} 
                                     required 
+                                    placeholder="كلمة المرور (الافتراضية 0000)"
                                     className="w-full px-4 py-3 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" 
                                 />
                             </div>
-                            {error && <p className="text-sm text-center text-red-500">{error}</p>}
-                            <button type="submit" className="w-full py-3 font-bold text-gray-900 bg-yellow-400 rounded-md hover:bg-yellow-500">
+                            
+                            <div className="flex items-center gap-3 p-3 bg-yellow-50 border border-brand-gold rounded-md">
+                                <input 
+                                    type="checkbox" 
+                                    id="prayer-check-login"
+                                    checked={loginPrayerChecked}
+                                    onChange={(e) => setLoginPrayerChecked(e.target.checked)}
+                                    className="w-5 h-5 text-brand-gold focus:ring-brand-gold cursor-pointer"
+                                />
+                                <label htmlFor="prayer-check-login" className="text-sm font-bold text-brand-navy cursor-pointer select-none">
+                                    أقر بأنني قرأت الفاتحة وترحمت على والدة مبرمج الموقع.
+                                </label>
+                            </div>
+
+                            {error && <p className="text-sm text-center text-red-500 font-bold">{error}</p>}
+                            <button type="submit" className="w-full py-3 font-bold text-gray-900 bg-yellow-400 rounded-md hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed">
                                 دخول
                             </button>
                         </form>
                     ) : (
                         <form className="space-y-4 text-right" onSubmit={handleRegister}>
                             <div>
-                                <label className="block mb-1 text-sm font-medium text-gray-700">الاسم الثلاثي الكامل</label>
-                                <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" />
-                            </div>
-                            <div>
-                                <label className="block mb-1 text-sm font-medium text-gray-700">البريد الإلكتروني</label>
-                                <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" />
+                                <label className="block mb-1 text-sm font-medium text-gray-700">الاسم الثلاثي (بالعربي)</label>
+                                <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" placeholder="الاسم كما في الكشف" />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block mb-1 text-sm font-medium text-gray-700">كلمة المرور</label>
-                                    <input type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" />
+                                    <input type="text" value={regPassword} onChange={e => setRegPassword(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" placeholder="مثال: 0000" />
                                 </div>
                                 <div>
                                     <label className="block mb-1 text-sm font-medium text-gray-700">تأكيد كلمة المرور</label>
-                                    <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" />
+                                    <input type="text" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-brand-gold focus:outline-none" />
                                 </div>
                             </div>
                             <div>
@@ -262,7 +321,21 @@ const LoginScreen: React.FC = () => {
                                     <option value={EnrollmentType.INTIZAM}>انتظام</option>
                                 </select>
                             </div>
-                            {error && <p className="text-sm text-center text-red-500">{error}</p>}
+
+                            <div className="flex items-center gap-3 p-3 bg-yellow-50 border border-brand-gold rounded-md">
+                                <input 
+                                    type="checkbox" 
+                                    id="prayer-check-reg"
+                                    checked={regPrayerChecked}
+                                    onChange={(e) => setRegPrayerChecked(e.target.checked)}
+                                    className="w-5 h-5 text-brand-gold focus:ring-brand-gold cursor-pointer"
+                                />
+                                <label htmlFor="prayer-check-reg" className="text-sm font-bold text-brand-navy cursor-pointer select-none">
+                                    أقر بأنني قرأت الفاتحة وترحمت على والدة مبرمج الموقع.
+                                </label>
+                            </div>
+
+                            {error && <p className="text-sm text-center text-red-500 font-bold">{error}</p>}
                             <button type="submit" className="w-full py-3 font-bold text-gray-900 bg-yellow-400 rounded-md hover:bg-yellow-500">
                                 تسجيل حساب جديد
                             </button>
@@ -310,17 +383,23 @@ const Header: React.FC = () => {
 
 // --- Student View ---
 const StudentView: React.FC = () => {
-    const [currentView, setCurrentView] = useState<'dashboard' | 'pre-exam' | 'exam' | 'results'>('dashboard');
+    const [currentView, setCurrentView] = useState<'dashboard' | 'mode-select' | 'pre-exam' | 'exam' | 'results'>('dashboard');
     const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+    const [selectedExamType, setSelectedExamType] = useState<ExamType | null>(null);
     const [currentAttempt, setCurrentAttempt] = useState<ExamAttempt | null>(null);
 
-    const startExam = (subject: Subject) => {
+    const selectSubject = (subject: Subject) => {
         setSelectedSubject(subject);
-        setCurrentView('pre-exam');
+        setCurrentView('mode-select');
     };
 
+    const selectExamMode = (type: ExamType) => {
+        setSelectedExamType(type);
+        setCurrentView('pre-exam');
+    }
+
     const beginExam = () => {
-        if (!selectedSubject) return;
+        if (!selectedSubject || !selectedExamType) return;
         setCurrentView('exam');
     };
 
@@ -331,6 +410,7 @@ const StudentView: React.FC = () => {
 
     const backToDashboard = () => {
         setSelectedSubject(null);
+        setSelectedExamType(null);
         setCurrentAttempt(null);
         setCurrentView('dashboard');
     };
@@ -339,48 +419,68 @@ const StudentView: React.FC = () => {
         <>
             <Header />
             <main className="container p-4 mx-auto md:p-8">
-                {currentView === 'dashboard' && <StudentDashboard onStartExam={startExam} />}
-                {currentView === 'pre-exam' && selectedSubject && <PreExamScreen subject={selectedSubject} onBegin={beginExam} onCancel={backToDashboard} />}
-                {currentView === 'exam' && selectedSubject && <ExamScreen subject={selectedSubject} onFinish={finishExam} />}
-                {currentView === 'results' && currentAttempt && <ResultsScreen attempt={currentAttempt} onBack={backToDashboard} />}
+                {currentView === 'dashboard' && <StudentDashboard onSelectSubject={selectSubject} />}
+                
+                {currentView === 'mode-select' && selectedSubject && (
+                    <ExamModeSelection 
+                        subject={selectedSubject} 
+                        onSelectMode={selectExamMode} 
+                        onBack={backToDashboard} 
+                    />
+                )}
+
+                {currentView === 'pre-exam' && selectedSubject && selectedExamType && (
+                    <PreExamScreen 
+                        subject={selectedSubject} 
+                        examType={selectedExamType}
+                        onBegin={beginExam} 
+                        onCancel={backToDashboard} 
+                    />
+                )}
+
+                {currentView === 'exam' && selectedSubject && selectedExamType && (
+                    <ExamScreen 
+                        subject={selectedSubject} 
+                        examType={selectedExamType}
+                        onFinish={finishExam} 
+                    />
+                )}
+
+                {currentView === 'results' && currentAttempt && (
+                    <ResultsScreen 
+                        attempt={currentAttempt} 
+                        onBack={backToDashboard} 
+                    />
+                )}
             </main>
         </>
     );
 };
 
-const StudentDashboard: React.FC<{onStartExam: (subject: Subject) => void}> = ({ onStartExam }) => {
+const StudentDashboard: React.FC<{onSelectSubject: (subject: Subject) => void}> = ({ onSelectSubject }) => {
     const { state, currentUser } = useContext(AppContext);
     
     return (
         <div>
             <div className="p-6 mb-8 bg-white rounded-lg shadow-md">
                 <h2 className="text-2xl font-bold text-brand-navy">لوحة التحكم</h2>
-                <p className="text-gray-600">أهلاً بك، {currentUser?.fullName}. يمكنك أداء الامتحان مرتين فقط لكل مادة.</p>
+                <p className="text-gray-600">أهلاً بك، {currentUser?.fullName}. اختر المادة للدخول إلى الامتحانات.</p>
             </div>
 
             <h2 className="mb-6 text-2xl font-bold text-brand-navy">المواد الدراسية</h2>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {state.subjects.map(subject => {
-                    const userAttempts = (state.examAttempts || []).filter(a => a.userId === currentUser!.id && a.subjectId === subject.id);
+                    const userAttempts = (state.examAttempts || []).filter(a => a.userId === currentUser!.id && a.subjectId === subject.id && a.examType === 'final');
                     const attemptCount = userAttempts.length;
                     const examSettings = state.examSettings[subject.id] || { isOpen: false };
                     const { isOpen } = examSettings;
 
-                    // Logic: Allow if attempts < 2 and exam is open
-                    const canTakeExam = isOpen && attemptCount < 2;
-                    
-                    let buttonText = 'ابدأ الامتحان (المحاولة 1)';
+                    let buttonText = 'الدخول للامتحان';
                     let buttonClass = 'brand-gold hover:bg-yellow-500 text-gray-900';
 
                     if (!isOpen) {
                         buttonText = 'الامتحان مغلق';
                         buttonClass = 'bg-gray-400 text-white cursor-not-allowed';
-                    } else if (attemptCount === 1) {
-                        buttonText = 'إعادة الامتحان (فرصة أخيرة)';
-                        buttonClass = 'bg-orange-500 hover:bg-orange-600 text-white';
-                    } else if (attemptCount >= 2) {
-                        buttonText = 'تم استنفاذ المحاولات';
-                        buttonClass = 'bg-red-500 text-white cursor-not-allowed';
                     }
                     
                     const lastScore = attemptCount > 0 ? userAttempts[userAttempts.length - 1].score : null;
@@ -390,18 +490,18 @@ const StudentDashboard: React.FC<{onStartExam: (subject: Subject) => void}> = ({
                     <div key={subject.id} className="relative p-6 transition duration-300 bg-white border border-gray-200 rounded-lg shadow-md hover:shadow-xl">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-xl font-bold text-brand-navy">{subject.name}</h3>
-                            <span className="px-2 py-1 text-xs font-bold text-gray-600 bg-gray-100 rounded-full">{attemptCount} / 2 محاولات</span>
+                            <span className="px-2 py-1 text-xs font-bold text-gray-600 bg-gray-100 rounded-full">النهائي: {attemptCount} / 2 محاولات</span>
                         </div>
                         
                         {lastScore !== null && (
                             <div className="mb-4 text-sm text-gray-600">
-                                آخر درجة: <span className="font-bold text-brand-navy">{((lastScore / totalQs) * 100).toFixed(1)} من 100</span>
+                                آخر درجة (نهائي): <span className="font-bold text-brand-navy">{((lastScore / totalQs) * 100).toFixed(1)} من 100</span>
                             </div>
                         )}
 
                         <button 
-                            onClick={() => onStartExam(subject)}
-                            disabled={!canTakeExam}
+                            onClick={() => onSelectSubject(subject)}
+                            disabled={!isOpen}
                             className={`w-full px-4 py-3 font-bold transition rounded-md shadow-sm ${buttonClass}`}>
                            {buttonText}
                         </button>
@@ -412,24 +512,96 @@ const StudentDashboard: React.FC<{onStartExam: (subject: Subject) => void}> = ({
     );
 };
 
-const PreExamScreen: React.FC<{ subject: Subject; onBegin: () => void; onCancel: () => void }> = ({ subject, onBegin, onCancel }) => {
+const ExamModeSelection: React.FC<{ subject: Subject, onSelectMode: (type: ExamType) => void, onBack: () => void }> = ({ subject, onSelectMode, onBack }) => {
+    const { state, currentUser } = useContext(AppContext);
+    
+    // Check attempts for FINAL exam (Max 2)
+    const finalAttempts = (state.examAttempts || []).filter(a => a.userId === currentUser!.id && a.subjectId === subject.id && a.examType === 'final');
+    const finalAttemptsCount = finalAttempts.length;
+    const maxFinalAttempts = 2;
+    const canTakeFinal = finalAttemptsCount < maxFinalAttempts;
+
+    // Check attempts for TRIAL exam (Max 4)
+    const trialAttempts = (state.examAttempts || []).filter(a => a.userId === currentUser!.id && a.subjectId === subject.id && a.examType === 'trial');
+    const trialAttemptsCount = trialAttempts.length;
+    const maxTrialAttempts = 4;
+    const canTakeTrial = trialAttemptsCount < maxTrialAttempts;
+
+    return (
+        <div className="max-w-4xl mx-auto">
+            <div className="mb-6 flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-brand-navy">اختر نوع الامتحان: {subject.name}</h2>
+                <button onClick={onBack} className="text-gray-600 hover:text-gray-800">العودة</button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Trial Exam Card */}
+                <div className={`bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-blue-500 transition-shadow ${!canTakeTrial ? 'opacity-70 grayscale' : 'hover:shadow-2xl cursor-pointer'}`} onClick={() => canTakeTrial && onSelectMode('trial')}>
+                    <div className="p-8 text-center">
+                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                        </div>
+                        <h3 className="text-2xl font-bold text-gray-800 mb-2">امتحان تجريبي</h3>
+                        <p className="text-gray-500 mb-6">تدريب عشوائي مكون من 40 سؤال</p>
+                        <ul className="text-sm text-gray-600 space-y-2 mb-8 text-right px-4">
+                            <li className="flex items-center"><span className="ml-2 text-blue-500">✓</span> عدد الأسئلة: 40 سؤال</li>
+                            <li className="flex items-center"><span className="ml-2 text-blue-500">✓</span> الترتيب: اختياري ثم صح/خطأ</li>
+                            <li className="flex items-center"><span className="ml-2 text-blue-500">✓</span> المحاولات المتبقية: <span className="font-bold text-red-600 mr-1">{maxTrialAttempts - trialAttemptsCount}</span></li>
+                        </ul>
+                        <button disabled={!canTakeTrial} className={`w-full py-3 rounded-lg font-bold transition ${canTakeTrial ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
+                            {canTakeTrial ? 'بدء الامتحان التجريبي' : 'تم استنفاذ المحاولات'}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Final Exam Card */}
+                <div className={`bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-brand-gold transition-shadow ${!canTakeFinal ? 'opacity-70 grayscale' : 'hover:shadow-2xl cursor-pointer'}`} onClick={() => canTakeFinal && onSelectMode('final')}>
+                    <div className="p-8 text-center">
+                        <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        <h3 className="text-2xl font-bold text-gray-800 mb-2">امتحان آخر العام</h3>
+                        <p className="text-gray-500 mb-6">امتحان شامل لكامل المقرر الدراسي</p>
+                        <ul className="text-sm text-gray-600 space-y-2 mb-8 text-right px-4">
+                            <li className="flex items-center"><span className="ml-2 text-brand-gold">✓</span> يشمل جميع الأسئلة المتاحة</li>
+                            <li className="flex items-center"><span className="ml-2 text-brand-gold">✓</span> الترتيب: اختياري ثم صح/خطأ</li>
+                            <li className="flex items-center"><span className="ml-2 text-brand-gold">✓</span> المحاولات المتبقية: <span className="font-bold text-red-600 mr-1">{maxFinalAttempts - finalAttemptsCount}</span></li>
+                        </ul>
+                        <button disabled={!canTakeFinal} className={`w-full py-3 rounded-lg font-bold transition ${canTakeFinal ? 'bg-brand-gold text-gray-900 hover:bg-yellow-500' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
+                            {canTakeFinal ? 'بدء امتحان آخر العام' : 'تم استنفاذ المحاولات'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const PreExamScreen: React.FC<{ subject: Subject; examType: ExamType; onBegin: () => void; onCancel: () => void }> = ({ subject, examType, onBegin, onCancel }) => {
     const { state } = useContext(AppContext);
-    const settings = state.examSettings[subject.id];
-    const questionCount = settings?.questionCount || 60;
-    const durationMinutes = settings?.durationMinutes || 60;
+    
+    // Determine questions count purely for display
+    const subjectQuestions = state.questions.filter(q => q.subjectId === subject.id);
+    const questionCount = examType === 'trial' ? 40 : subjectQuestions.length;
+    const durationMinutes = state.examSettings[subject.id]?.durationMinutes || 60; // Or adjust based on mode if needed
 
     return (
         <div className="max-w-3xl p-8 mx-auto bg-white rounded-lg shadow-lg">
-            <h2 className="mb-4 text-2xl font-bold text-center text-brand-navy">تعليمات امتحان: {subject.name}</h2>
+            <h2 className="mb-4 text-2xl font-bold text-center text-brand-navy">
+                تعليمات {examType === 'trial' ? 'الامتحان التجريبي' : 'امتحان آخر العام'}: {subject.name}
+            </h2>
             <div className="p-6 my-6 space-y-4 text-center bg-yellow-50 border-r-4 border-brand-gold">
                 <h3 className="text-lg font-bold text-brand-navy">تنبيه هام</h3>
                 <p className="text-gray-700">
-                    لديك فرصتان فقط لدخول هذا الامتحان. تأكد من استعدادك قبل البدء.
+                    {examType === 'final' 
+                        ? 'هذا امتحان رسمي. لديك فرصتان فقط لدخوله. تأكد من استعدادك التام.' 
+                        : 'هذا امتحان تدريبي لتقييم مستواك. لديك 4 محاولات لهذا النوع.'}
                 </p>
             </div>
             <div className="space-y-3 text-gray-800">
-                <p>• مدة الامتحان <span className="font-bold">{durationMinutes} دقيقة</span>.</p>
+                <p>• مدة الامتحان <span className="font-bold">{durationMinutes} دقيقة</span> (أو حتى الانتهاء).</p>
                 <p>• يتكون الامتحان من <span className="font-bold">{questionCount} سؤال</span>.</p>
+                <p>• نوع الأسئلة: اختيار من متعدد أولاً، يليه أسئلة الصواب والخطأ.</p>
                 <p>• بمجرد الضغط على زر "ابدأ الامتحان"، سيبدأ المؤقت <span className="font-bold">فورًا</span>.</p>
             </div>
             <div className="flex gap-4 mt-8 text-center">
@@ -444,10 +616,9 @@ const PreExamScreen: React.FC<{ subject: Subject; onBegin: () => void; onCancel:
     );
 };
 
-const ExamScreen: React.FC<{ subject: Subject; onFinish: (attempt: ExamAttempt) => void }> = ({ subject, onFinish }) => {
+const ExamScreen: React.FC<{ subject: Subject; examType: ExamType; onFinish: (attempt: ExamAttempt) => void }> = ({ subject, examType, onFinish }) => {
     const { state, setState, currentUser } = useContext(AppContext);
     const settings = state.examSettings[subject.id];
-    const questionCount = settings?.questionCount || 60;
     const durationMinutes = settings?.durationMinutes || 60;
 
     const [questions, setQuestions] = useState<Question[]>([]);
@@ -460,23 +631,35 @@ const ExamScreen: React.FC<{ subject: Subject; onFinish: (attempt: ExamAttempt) 
     };
 
     useEffect(() => {
-        const sectionSetting = state.examSettings[subject.id]?.section;
+        // 1. Get all questions for subject
         let allSubjectQuestions = state.questions.filter(q => q.subjectId === subject.id);
 
-        if (sectionSetting && sectionSetting !== 'all') {
-            allSubjectQuestions = allSubjectQuestions.filter(q => q.section === sectionSetting);
+        // 2. Separate types
+        const mcqs = allSubjectQuestions.filter(q => q.type === QuestionType.MCQ);
+        const tfs = allSubjectQuestions.filter(q => q.type === QuestionType.TRUE_FALSE);
+
+        let finalQuestions: Question[] = [];
+
+        if (examType === 'trial') {
+            const allShuffled = shuffleArray(allSubjectQuestions);
+            const selected40 = allShuffled.slice(0, 40);
+            
+            // Now sort selected40: MCQ first, then TF
+            const selectedMCQs = selected40.filter(q => q.type === QuestionType.MCQ);
+            const selectedTFs = selected40.filter(q => q.type === QuestionType.TRUE_FALSE);
+            
+            finalQuestions = [...selectedMCQs, ...selectedTFs];
+
+        } else {
+            // Final Exam: All questions
+            const shuffledMCQ = shuffleArray(mcqs);
+            const shuffledTF = shuffleArray(tfs);
+            finalQuestions = [...shuffledMCQ, ...shuffledTF];
         }
-
-        const mcqCount = Math.round(questionCount * 0.8);
-        const tfCount = questionCount - mcqCount;
-
-        const mcq = shuffleArray(allSubjectQuestions.filter(q => q.type === QuestionType.MCQ)).slice(0, mcqCount);
-        const tf = shuffleArray(allSubjectQuestions.filter(q => q.type === QuestionType.TRUE_FALSE)).slice(0, tfCount);
         
-        const finalQuestions = shuffleArray([...mcq, ...tf]);
-        setQuestions(finalQuestions.slice(0, questionCount));
+        setQuestions(finalQuestions);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [subject.id, questionCount]);
+    }, [subject.id, examType]);
 
     const submitExam = useCallback(() => {
         let score = 0;
@@ -491,10 +674,10 @@ const ExamScreen: React.FC<{ subject: Subject; onFinish: (attempt: ExamAttempt) 
             id: `attempt_${Date.now()}`,
             userId: currentUser!.id,
             subjectId: subject.id,
+            examType: examType,
             startTime: Date.now() - (durationMinutes * 60 - timeLeft) * 1000,
             endTime: Date.now(),
             answers: finalAnswers,
-            // IMPORTANT: Save the list of questions to ensure full review even for skipped questions
             questionIds: questions.map(q => q.id),
             score,
             totalQuestions: questions.length,
@@ -507,7 +690,7 @@ const ExamScreen: React.FC<{ subject: Subject; onFinish: (attempt: ExamAttempt) 
         }));
         onFinish(newAttempt);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [answers, currentUser, onFinish, questions, setState, subject.id, timeLeft, durationMinutes]);
+    }, [answers, currentUser, onFinish, questions, setState, subject.id, timeLeft, durationMinutes, examType]);
 
 
     useEffect(() => {
@@ -526,7 +709,7 @@ const ExamScreen: React.FC<{ subject: Subject; onFinish: (attempt: ExamAttempt) 
     }, [questions, submitExam]);
 
     if (questions.length === 0) {
-        return <div className="text-center">جارٍ تحضير الامتحان...</div>;
+        return <div className="text-center p-8">جارٍ تحضير الأسئلة...</div>;
     }
     
     const currentQuestion = questions[currentQIndex];
@@ -538,44 +721,52 @@ const ExamScreen: React.FC<{ subject: Subject; onFinish: (attempt: ExamAttempt) 
     return (
         <div className="max-w-4xl p-8 mx-auto bg-white rounded-lg shadow-2xl">
             <div className="flex items-center justify-between pb-4 mb-4 border-b">
-                <h2 className="text-xl font-bold text-brand-navy">{subject.name}</h2>
+                <div className="text-right">
+                    <h2 className="text-xl font-bold text-brand-navy">{subject.name}</h2>
+                    <span className="text-sm text-gray-500">{examType === 'trial' ? 'امتحان تجريبي' : 'امتحان آخر العام'}</span>
+                </div>
                 <div className="px-4 py-2 font-bold text-white rounded-md brand-navy">
                     {Math.floor(timeLeft / 60)}:{('0' + (timeLeft % 60)).slice(-2)}
                 </div>
             </div>
             
             <div className="mb-6">
-                <p className="mb-2 font-bold">السؤال {currentQIndex + 1} من {questions.length}</p>
-                <p className="text-lg text-gray-800">{currentQuestion.text}</p>
+                <div className="flex justify-between items-center mb-2">
+                    <p className="font-bold">السؤال {currentQIndex + 1} من {questions.length}</p>
+                    <span className="text-xs font-bold px-2 py-1 bg-gray-100 rounded text-gray-600">
+                        {currentQuestion.type === QuestionType.MCQ ? 'اختيار من متعدد' : 'صح أم خطأ'}
+                    </span>
+                </div>
+                <p className="text-lg text-gray-800 leading-relaxed">{currentQuestion.text}</p>
             </div>
             
             <div className="space-y-4">
                 {currentQuestion.type === QuestionType.MCQ && currentQuestion.options?.map((option, index) => (
-                    <label key={index} className={`flex items-center p-4 border rounded-lg cursor-pointer ${answers[currentQuestion.id] === String(index) ? 'bg-yellow-100 border-brand-gold' : 'border-gray-200'}`}>
+                    <label key={index} className={`flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition ${answers[currentQuestion.id] === String(index) ? 'bg-yellow-100 border-brand-gold' : 'border-gray-200'}`}>
                         <input type="radio" name={`q_${currentQuestion.id}`} value={index} checked={answers[currentQuestion.id] === String(index)} onChange={() => handleAnswer(String(index))} className="w-5 h-5 ml-4 text-brand-gold focus:ring-brand-gold"/>
                         <span className="text-brand-navy">{option}</span>
                     </label>
                 ))}
                  {currentQuestion.type === QuestionType.TRUE_FALSE && (
-                    <>
-                        <label className={`flex items-center p-4 border rounded-lg cursor-pointer ${answers[currentQuestion.id] === 'true' ? 'bg-yellow-100 border-brand-gold' : 'border-gray-200'}`}>
+                    <div className="flex gap-4">
+                        <label className={`flex-1 flex items-center justify-center p-6 border rounded-lg cursor-pointer hover:bg-gray-50 transition ${answers[currentQuestion.id] === 'true' ? 'bg-yellow-100 border-brand-gold' : 'border-gray-200'}`}>
                             <input type="radio" name={`q_${currentQuestion.id}`} value="true" checked={answers[currentQuestion.id] === 'true'} onChange={() => handleAnswer('true')} className="w-5 h-5 ml-4 text-brand-gold focus:ring-brand-gold" />
-                            <span className="text-brand-navy">صح</span>
+                            <span className="text-brand-navy text-lg font-bold">✓ صح</span>
                         </label>
-                        <label className={`flex items-center p-4 border rounded-lg cursor-pointer ${answers[currentQuestion.id] === 'false' ? 'bg-yellow-100 border-brand-gold' : 'border-gray-200'}`}>
+                        <label className={`flex-1 flex items-center justify-center p-6 border rounded-lg cursor-pointer hover:bg-gray-50 transition ${answers[currentQuestion.id] === 'false' ? 'bg-yellow-100 border-brand-gold' : 'border-gray-200'}`}>
                             <input type="radio" name={`q_${currentQuestion.id}`} value="false" checked={answers[currentQuestion.id] === 'false'} onChange={() => handleAnswer('false')} className="w-5 h-5 ml-4 text-brand-gold focus:ring-brand-gold" />
-                            <span className="text-brand-navy">خطأ</span>
+                            <span className="text-brand-navy text-lg font-bold">✗ خطأ</span>
                         </label>
-                    </>
+                    </div>
                  )}
             </div>
 
-            <div className="flex justify-between mt-8">
-                <button onClick={() => setCurrentQIndex(Math.max(0, currentQIndex - 1))} disabled={currentQIndex === 0} className="px-6 py-2 bg-gray-200 rounded-md disabled:opacity-50">السابق</button>
+            <div className="flex justify-between mt-8 pt-6 border-t border-gray-100">
+                <button onClick={() => setCurrentQIndex(Math.max(0, currentQIndex - 1))} disabled={currentQIndex === 0} className="px-6 py-2 bg-gray-200 rounded-md disabled:opacity-50 hover:bg-gray-300 transition">السابق</button>
                 {currentQIndex === questions.length - 1 ? (
-                    <button onClick={submitExam} className="px-6 py-2 text-white bg-green-600 rounded-md hover:bg-green-700">تسليم الامتحان</button>
+                    <button onClick={submitExam} className="px-6 py-2 text-white bg-green-600 rounded-md hover:bg-green-700 shadow-md transition">تسليم الامتحان</button>
                 ) : (
-                    <button onClick={() => setCurrentQIndex(Math.min(questions.length - 1, currentQIndex + 1))} className="px-6 py-2 text-white rounded-md brand-gold hover:bg-yellow-500">التالي</button>
+                    <button onClick={() => setCurrentQIndex(Math.min(questions.length - 1, currentQIndex + 1))} className="px-6 py-2 text-white rounded-md brand-gold hover:bg-yellow-500 shadow-md transition">التالي</button>
                 )}
             </div>
         </div>
@@ -596,9 +787,6 @@ const FullExamReview: React.FC<{ attempt: ExamAttempt }> = ({ attempt }) => {
     const { state } = useContext(AppContext);
 
     // Reconstruct the exact list of questions presented in the exam.
-    // We prefer `attempt.questionIds` (new format).
-    // Fallback to `Object.keys(attempt.answers)` for backward compatibility (old format), 
-    // though old format will miss unanswered questions.
     const reviewedQuestions = useMemo(() => {
         const idsToReview = attempt.questionIds || Object.keys(attempt.answers);
         
@@ -704,12 +892,13 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
 
                 <div className="py-10 text-center">
                     <h1 className="mb-2 text-3xl font-bold text-brand-navy">شهادة إتمام اختبار</h1>
-                    <p className="text-gray-500">تم استخراج هذه الوثيقة إلكترونيًا</p>
+                    <p className="text-gray-500">
+                        {attempt.examType === 'trial' ? 'نسخة امتحان تجريبي' : 'نسخة رسمية - امتحان آخر العام'}
+                    </p>
                 </div>
                 
                 <div className="space-y-6 text-center">
                     <p className="text-xl text-gray-800">تشهد إدارة النظام بأن الطالب/ة</p>
-                    {/* Updated name display to be more compatible with PDF generation and clearer */}
                     <div className="my-4">
                         <h3 className="text-3xl font-bold text-brand-navy decoration-brand-gold underline decoration-4 underline-offset-8">
                             {currentUser?.fullName || "اسم غير متوفر"}
@@ -722,7 +911,6 @@ const ResultsScreen: React.FC<{ attempt: ExamAttempt; onBack: () => void }> = ({
                 <section className="grid grid-cols-3 gap-4 p-6 my-10 border rounded-lg bg-gray-50 border-brand-gold">
                     <div className="text-center">
                         <p className="text-gray-500">الدرجة</p>
-                        {/* Display score out of 100 */}
                         <p className="text-3xl font-bold text-brand-navy">{finalScore} / 100</p>
                     </div>
                     <div className="text-center border-r border-l border-gray-300">
@@ -879,6 +1067,11 @@ const AdminView: React.FC = () => {
     const { state, setState } = useContext(AppContext);
     const [tab, setTab] = useState<'monitor' | 'questions' | 'settings'>('monitor');
 
+    // Monitor Tab State
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterSubject, setFilterSubject] = useState('all');
+    const [filterType, setFilterType] = useState('all');
+
     // Questions Tab State
     const [selectedSubjectId, setSelectedSubjectId] = useState<string>(state.subjects[0]?.id);
     const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
@@ -923,6 +1116,26 @@ const AdminView: React.FC = () => {
         setIsCreating(true);
     };
 
+    const handleUnlockUser = (userId: string) => {
+        if (!window.confirm('هل أنت متأكد من فك حظر هذا الطالب؟')) return;
+        setState(prev => ({
+            ...prev,
+            users: prev.users.map(u => u.id === userId ? { ...u, isLocked: false, failedLoginAttempts: 0 } : u)
+        }));
+        alert('تم فك الحظر بنجاح.');
+    };
+
+    const handleResetPassword = (userId: string) => {
+        const newPass = prompt('أدخل كلمة المرور الجديدة (4 أرقام):');
+        if (!newPass || newPass.length < 4) return;
+        
+        setState(prev => ({
+            ...prev,
+            users: prev.users.map(u => u.id === userId ? { ...u, passwordHash: newPass, isLocked: false, failedLoginAttempts: 0 } : u)
+        }));
+        alert('تم تغيير كلمة المرور وفك الحظر إن وجد.');
+    };
+
     // Settings Tab Logic
     const updateExamSetting = (subjectId: string, field: string, value: any) => {
         setState(prev => ({
@@ -937,7 +1150,18 @@ const AdminView: React.FC = () => {
         }));
     };
 
+    // Filter attempts logic
+    const filteredAttempts = state.examAttempts.filter(attempt => {
+        const user = state.users.find(u => u.id === attempt.userId);
+        const matchesSearch = user ? user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) : false;
+        const matchesSubject = filterSubject === 'all' || attempt.subjectId === filterSubject;
+        const matchesType = filterType === 'all' || attempt.examType === filterType;
+        return matchesSearch && matchesSubject && matchesType;
+    }).sort((a, b) => b.endTime - a.endTime);
+
     const filteredQuestions = state.questions.filter(q => q.subjectId === selectedSubjectId);
+
+    const studentsList = state.users.filter(u => u.role === UserRole.STUDENT && u.fullName.includes(searchTerm));
 
     return (
         <>
@@ -946,7 +1170,7 @@ const AdminView: React.FC = () => {
                 {/* Tabs */}
                 <div className="flex mb-6 space-x-1 bg-white rounded-lg shadow rtl:space-x-reverse p-1">
                     <button onClick={() => setTab('monitor')} className={`flex-1 py-3 text-sm font-bold rounded-md transition ${tab === 'monitor' ? 'bg-brand-navy text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}>
-                        المراقبة والنتائج
+                        المراقبة والطلاب
                     </button>
                     <button onClick={() => setTab('questions')} className={`flex-1 py-3 text-sm font-bold rounded-md transition ${tab === 'questions' ? 'bg-brand-navy text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}>
                         بنك الأسئلة
@@ -970,38 +1194,132 @@ const AdminView: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="overflow-hidden bg-white rounded-lg shadow">
-                            <div className="px-6 py-4 border-b">
-                                <h3 className="font-bold text-brand-navy">سجل الامتحانات ودرجات الطلاب</h3>
+                        <div className="bg-white rounded-lg shadow p-4">
+                            <h3 className="text-lg font-bold text-brand-navy mb-4 border-b pb-2">أدوات البحث والفلترة</h3>
+                            <div className="flex flex-col md:flex-row gap-4 mb-4">
+                                <div className="flex-1">
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">بحث باسم الطالب</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="بحث..." 
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="w-full p-2 border rounded"
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">تصفية حسب المادة</label>
+                                    <select 
+                                        value={filterSubject} 
+                                        onChange={(e) => setFilterSubject(e.target.value)}
+                                        className="w-full p-2 border rounded"
+                                    >
+                                        <option value="all">كل المواد</option>
+                                        {state.subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">نوع الامتحان</label>
+                                    <select 
+                                        value={filterType} 
+                                        onChange={(e) => setFilterType(e.target.value)}
+                                        className="w-full p-2 border rounded"
+                                    >
+                                        <option value="all">الكل</option>
+                                        <option value="trial">تجريبي</option>
+                                        <option value="final">نهائي (رسمي)</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div className="overflow-x-auto">
+                        </div>
+
+                        {/* Students Management Table */}
+                        <div className="bg-white rounded-lg shadow mb-8">
+                            <div className="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
+                                <h3 className="font-bold text-brand-navy">إدارة الطلاب وحساباتهم</h3>
+                            </div>
+                            <div className="overflow-x-auto max-h-60 overflow-y-auto">
                                 <table className="w-full text-right">
-                                    <thead className="bg-gray-50">
+                                    <thead className="bg-gray-100 sticky top-0">
                                         <tr>
-                                            <th className="p-4 text-sm font-bold text-gray-600">الطالب</th>
-                                            <th className="p-4 text-sm font-bold text-gray-600">نوع القيد</th>
-                                            <th className="p-4 text-sm font-bold text-gray-600">المادة</th>
-                                            <th className="p-4 text-sm font-bold text-gray-600">الدرجة (100)</th>
-                                            <th className="p-4 text-sm font-bold text-gray-600">وقت الدخول</th>
+                                            <th className="p-3 text-sm font-bold">الاسم</th>
+                                            <th className="p-3 text-sm font-bold">كلمة المرور</th>
+                                            <th className="p-3 text-sm font-bold">الحالة</th>
+                                            <th className="p-3 text-sm font-bold">إجراءات</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {state.examAttempts.slice().reverse().map(a => {
+                                        {studentsList.map(u => (
+                                            <tr key={u.id} className="border-b hover:bg-gray-50">
+                                                <td className="p-3">{u.fullName}</td>
+                                                <td className="p-3 text-gray-500 font-mono">{u.passwordHash}</td>
+                                                <td className="p-3">
+                                                    {u.isLocked ? (
+                                                        <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">محظور (خطأ مرتين)</span>
+                                                    ) : (
+                                                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">نشط</span>
+                                                    )}
+                                                </td>
+                                                <td className="p-3 flex gap-2">
+                                                    {u.isLocked && (
+                                                        <button onClick={() => handleUnlockUser(u.id)} className="bg-orange-500 text-white px-2 py-1 rounded text-xs hover:bg-orange-600">فك الحظر</button>
+                                                    )}
+                                                    <button onClick={() => handleResetPassword(u.id)} className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600">تغيير الباسورد</button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Exam Results Table */}
+                        <div className="overflow-hidden bg-white rounded-lg shadow">
+                            <div className="px-6 py-4 border-b bg-gray-50">
+                                <h3 className="font-bold text-brand-navy">سجل درجات الامتحانات</h3>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-right">
+                                    <thead className="bg-gray-100">
+                                        <tr>
+                                            <th className="p-4 text-sm font-bold text-gray-600">اسم الطالب</th>
+                                            <th className="p-4 text-sm font-bold text-gray-600">نوع القيد</th>
+                                            <th className="p-4 text-sm font-bold text-gray-600">المادة</th>
+                                            <th className="p-4 text-sm font-bold text-gray-600">نوع الامتحان</th>
+                                            <th className="p-4 text-sm font-bold text-gray-600">الدرجة (من 100)</th>
+                                            <th className="p-4 text-sm font-bold text-gray-600">الحالة</th>
+                                            <th className="p-4 text-sm font-bold text-gray-600">التاريخ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredAttempts.map(a => {
                                             const u = state.users.find(u => u.id === a.userId);
                                             const s = state.subjects.find(s => s.id === a.subjectId);
+                                            const scorePercent = (a.score / a.totalQuestions) * 100;
+                                            const isPass = scorePercent >= 50;
                                             return (
                                                 <tr key={a.id} className="border-b hover:bg-gray-50">
-                                                    <td className="p-4 font-bold text-brand-navy">{u?.fullName}</td>
+                                                    <td className="p-4 font-bold text-brand-navy">{u?.fullName || 'غير معروف'}</td>
                                                     <td className="p-4 text-sm text-gray-600">{u?.enrollmentType === EnrollmentType.INTIZAM ? 'انتظام' : 'انتساب'}</td>
                                                     <td className="p-4">{s?.name}</td>
-                                                    <td className="p-4 font-bold">{((a.score / a.totalQuestions) * 100).toFixed(1)}</td>
+                                                    <td className="p-4">
+                                                        <span className={`px-2 py-1 rounded text-xs text-white ${a.examType === 'trial' ? 'bg-blue-500' : 'bg-brand-gold text-gray-900'}`}>
+                                                            {a.examType === 'trial' ? 'تجريبي' : 'نهائي'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4 font-bold text-lg">{scorePercent.toFixed(0)}</td>
+                                                    <td className="p-4">
+                                                        <span className={`px-2 py-1 rounded text-xs font-bold ${isPass ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                            {isPass ? 'ناجح' : 'راسب'}
+                                                        </span>
+                                                    </td>
                                                     <td className="p-4 text-sm text-gray-500">{new Date(a.startTime).toLocaleString('ar-EG')}</td>
                                                 </tr>
                                             );
                                         })}
-                                        {state.examAttempts.length === 0 && (
+                                        {filteredAttempts.length === 0 && (
                                             <tr>
-                                                <td colSpan={5} className="p-8 text-center text-gray-500">لا توجد امتحانات مسجلة حتى الآن</td>
+                                                <td colSpan={7} className="p-8 text-center text-gray-500">لا توجد نتائج مطابقة للبحث</td>
                                             </tr>
                                         )}
                                     </tbody>
@@ -1097,15 +1415,7 @@ const AdminView: React.FC = () => {
                                         </label>
                                     </div>
                                     <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700">عدد الأسئلة</label>
-                                            <input 
-                                                type="number" 
-                                                value={settings.questionCount} 
-                                                onChange={(e) => updateExamSetting(subject.id, 'questionCount', parseInt(e.target.value))}
-                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 border" 
-                                            />
-                                        </div>
+                                        <p className="text-sm text-gray-500">إعدادات الامتحان النهائي</p>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700">مدة الامتحان (دقيقة)</label>
                                             <input 
